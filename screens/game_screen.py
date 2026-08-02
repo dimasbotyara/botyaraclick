@@ -87,6 +87,8 @@ class GameScreen:
         # UI элементы
         self._click_button_rect = None
         self._click_button_radius = 0
+        self._click_hover_scale = 1.0
+        self._is_click_hovered = False
         self._pause_button = None
         self._bottom_buttons = {}
         self._shop_scroll = None
@@ -574,6 +576,17 @@ class GameScreen:
 
         mouse_pos = pygame.mouse.get_pos()
 
+        # === Плавное наведение на кнопку клика ===
+        if self._click_center and self._click_button_radius:
+            dx = mouse_pos[0] - self._click_center[0]
+            dy = mouse_pos[1] - self._click_center[1]
+            dist = math.hypot(dx, dy)
+            self._is_click_hovered = dist <= self._click_button_radius
+            target_hover = 1.05 if self._is_click_hovered else 1.0
+            self._click_hover_scale += (target_hover - self._click_hover_scale) * min(1.0, dt * 14.0)
+        else:
+            self._is_click_hovered = False
+
         # === Время игры ===
         play_time = self.save.get_save_data("play_time", 0)
         self.save.update_save_data("play_time", play_time + dt)
@@ -916,50 +929,95 @@ class GameScreen:
         cy = self._click_center[1] + offset[1]
         base_r = self._click_button_radius
 
-        # Масштаб от анимации
-        scale = self.animations.click_bounce.scale
-        pulse_scale = self.animations.pulse.scale
-        r = int(base_r * scale * pulse_scale)
+        # Масштаб от нажатия и наведения (БЕЗ авто-пульсации!)
+        scale = self.animations.click_bounce.scale * getattr(self, "_click_hover_scale", 1.0)
+        r = max(10, int(base_r * scale))
 
         era_data = get_era_data(self._current_era)
         btn_color = era_data.get("click_object_color", (100, 140, 200))
         glow_color = era_data.get("click_object_glow", (60, 100, 180))
 
-        # Свечение
-        glow_r = int(r * 1.6)
+        is_hovered = getattr(self, "_is_click_hovered", False)
+
+        # 1. Плавное свечение вокруг кнопки (усиливается при наведении)
+        glow_r = int(r * 1.5)
         glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
-        glow_alpha = 30 + int(15 * math.sin(self.animations.pulse._phase * 2))
+        base_alpha = 70 if is_hovered else 40
         pygame.draw.circle(
             glow_surf,
-            (*glow_color, glow_alpha),
+            (*glow_color, base_alpha),
             (glow_r, glow_r), glow_r
         )
+        if is_hovered:
+            pygame.draw.circle(
+                glow_surf,
+                (255, 255, 255, 30),
+                (glow_r, glow_r), int(r * 1.1)
+            )
         surface.blit(glow_surf, (cx - glow_r, cy - glow_r))
 
-        # Внешнее кольцо
-        ring_color = tuple(min(c + 30, 255) for c in btn_color)
-        pygame.draw.circle(surface, ring_color, (cx, cy), r + 3, 3)
+        # 2. Мягкая объёмная тень под кнопкой
+        shadow_surf = pygame.Surface((r * 2 + 10, r * 2 + 10), pygame.SRCALPHA)
+        pygame.draw.circle(shadow_surf, (0, 0, 0, 80), (r + 5, r + 7), r)
+        surface.blit(shadow_surf, (cx - r - 5, cy - r - 3))
 
-        # Основная кнопка
-        pygame.draw.circle(surface, btn_color, (cx, cy), r)
+        # 3. Основная сферическая кнопка с градиентом
+        main_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+        center_color = tuple(min(255, int(c * 1.35)) for c in btn_color)
+        edge_color = tuple(max(0, int(c * 0.65)) for c in btn_color)
 
-        # Внутренний блик
-        highlight_r = int(r * 0.7)
-        highlight_color = tuple(min(c + 50, 255) for c in btn_color)
-        highlight_surf = pygame.Surface((highlight_r * 2, highlight_r * 2), pygame.SRCALPHA)
-        pygame.draw.circle(
-            highlight_surf,
-            (*highlight_color, 50),
-            (highlight_r, highlight_r), highlight_r
-        )
-        surface.blit(highlight_surf, (cx - highlight_r, cy - highlight_r - int(r * 0.15)))
+        steps = 12
+        for i in range(steps):
+            step_r = int(r * (1 - i / (steps * 1.3)))
+            if step_r <= 0:
+                continue
+            t_val = i / steps
+            offset_x = r - int(r * 0.12 * t_val)
+            offset_y = r - int(r * 0.15 * t_val)
+            r_c = int(center_color[0] * t_val + edge_color[0] * (1 - t_val))
+            g_c = int(center_color[1] * t_val + edge_color[1] * (1 - t_val))
+            b_c = int(center_color[2] * t_val + edge_color[2] * (1 - t_val))
+            pygame.draw.circle(main_surf, (r_c, g_c, b_c), (offset_x, offset_y), step_r)
 
-        # Текст
+        # 4. Внешний кольцевой ободок (ярче при наведении)
+        ring_color = (255, 255, 255) if is_hovered else tuple(min(255, c + 50) for c in btn_color)
+        ring_width = 4 if is_hovered else 3
+        pygame.draw.circle(main_surf, ring_color, (r, r), r - 1, ring_width)
+
+        # 5. Верхний глянцевый блик
+        glare_w = int(r * 1.2)
+        glare_h = int(r * 0.5)
+        if glare_w > 0 and glare_h > 0:
+            glare_surf = pygame.Surface((glare_w, glare_h), pygame.SRCALPHA)
+            pygame.draw.ellipse(glare_surf, (255, 255, 255, 80 if is_hovered else 50), (0, 0, glare_w, glare_h))
+            main_surf.blit(glare_surf, (r - glare_w // 2, int(r * 0.1)))
+
+        surface.blit(main_surf, (cx - r, cy - r))
+
+        # 6. Иконка эры + Текст
         font = self._fonts.get("click_text")
+        small_font = self._fonts.get("button") or self._fonts.get("normal")
+
+        era_icons = ["📟", "💻", "🚀", "🏢", "👑", "🌌", "🪐"]
+        icon = era_icons[min(self._current_era, len(era_icons) - 1)]
+
         if font:
             click_text = t("game.click")
-            text_surf = font.render(click_text, True, (255, 255, 255))
-            text_rect = text_surf.get_rect(center=(cx, cy))
+            # Тень от текста
+            shadow_txt = font.render(click_text, True, (0, 0, 0))
+            shadow_rect = shadow_txt.get_rect(center=(cx + 2, cy + (12 if small_font else 2)))
+            surface.blit(shadow_txt, shadow_rect)
+
+            # Сам текст
+            txt_color = (255, 255, 200) if is_hovered else (255, 255, 255)
+            text_surf = font.render(click_text, True, txt_color)
+            text_rect = text_surf.get_rect(center=(cx, cy + (10 if small_font else 0)))
+
+            if small_font:
+                icon_surf = small_font.render(icon, True, (255, 255, 255))
+                icon_rect = icon_surf.get_rect(center=(cx, cy - 18))
+                surface.blit(icon_surf, icon_rect)
+
             surface.blit(text_surf, text_rect)
 
     def _draw_golden_objects(self, surface, theme):
