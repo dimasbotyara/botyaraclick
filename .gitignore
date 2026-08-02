@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === SAVES (создаются автоматически, персональные данные) ===
+saves/
+
+# Compiled/packaged versions
+*.exe
+*.app
+*.dmg
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
