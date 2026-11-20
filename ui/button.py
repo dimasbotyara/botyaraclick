@@ -12,6 +12,8 @@ import pygame
 import math
 import time
 
+from ui import style
+
 
 class Button:
     """Универсальная кнопка с анимациями."""
@@ -248,33 +250,42 @@ class Button:
             draw_rect = pygame.Rect(0, 0, scaled_w, scaled_h)
             draw_rect.center = (cx, cy)
 
-        # Рисуем тень (лёгкая)
+        # Мягкая тень при наведении
         if self.enabled and self._hover_progress > 0:
-            shadow_rect = draw_rect.copy()
-            shadow_rect.y += 2
-            shadow_surface = pygame.Surface(
-                (shadow_rect.width, shadow_rect.height), pygame.SRCALPHA
+            style.draw_soft_rect(
+                surface,
+                pygame.Rect(draw_rect.x, draw_rect.y + 3,
+                            draw_rect.width, draw_rect.height),
+                (0, 0, 0), int(45 * self._hover_progress),
+                radius=self.border_radius
             )
-            shadow_alpha = int(30 * self._hover_progress)
-            pygame.draw.rect(
-                shadow_surface, (0, 0, 0, shadow_alpha),
-                (0, 0, shadow_rect.width, shadow_rect.height),
-                border_radius=self.border_radius
-            )
-            surface.blit(shadow_surface, shadow_rect.topleft)
 
-        # Рисуем фон кнопки
-        pygame.draw.rect(
-            surface, current_color, draw_rect,
-            border_radius=self.border_radius
+        # Фон кнопки: лёгкий вертикальный градиент вместо плоского цвета
+        top_color = style.lighten(current_color, 0.10)
+        bottom_color = style.darken(current_color, 0.12)
+        radius = min(self.border_radius, min(draw_rect.width, draw_rect.height) // 2)
+
+        panel = style.rounded_gradient(
+            (max(1, draw_rect.width), max(1, draw_rect.height)),
+            top_color, bottom_color, radius
         )
+        surface.blit(panel, draw_rect.topleft)
+
+        # Верхний блик для объёма
+        if draw_rect.height > 10:
+            style.draw_soft_rect(
+                surface,
+                pygame.Rect(draw_rect.x + 2, draw_rect.y + 1,
+                            max(1, draw_rect.width - 4), 2),
+                (255, 255, 255), 26, radius=1
+            )
 
         # Рисуем границу
         if self.border_width > 0:
             pygame.draw.rect(
                 surface, border_color, draw_rect,
                 width=self.border_width,
-                border_radius=self.border_radius
+                border_radius=radius
             )
 
         # Рисуем текст
@@ -284,6 +295,10 @@ class Button:
 
     def _draw_text(self, surface, font, color, rect):
         """Рисует текст и иконку внутри кнопки."""
+        shift = getattr(self, "text_shift_x", 0)
+        if shift:
+            rect = rect.move(shift, 0)
+
         if self.icon and self.text:
             # Иконка + текст
             icon_surf = font.render(self.icon, True, color)
@@ -361,24 +376,45 @@ class ToggleButton(Button):
         return False
 
     def draw(self, surface, theme=None, font_override=None, offset=(0, 0)):
-        """Рисует кнопку с учётом состояния toggle."""
+        """Рисует кнопку с учётом состояния toggle (со свитчем справа)."""
+        # Текст центрируем в свободной части слева от свитча
+        free_left = self._rect.left + 12 if self._rect else 0
+        free_right = self._rect.right - 64 if self._rect else 0
+        self.text_shift_x = (
+            (free_left + free_right) // 2 - self._rect.centerx if self._rect else 0
+        )
+
         if self.toggled and self._toggle_color:
             old_color = self._color
-            self._color = self._toggle_color
+            self._color = style.mix(self._color, self._toggle_color, 0.45)
             super().draw(surface, theme, font_override, offset)
             self._color = old_color
         else:
             super().draw(surface, theme, font_override, offset)
 
-        # Индикатор состояния (маленький кружок)
-        if self._rect:
-            r = self._rect.copy()
-            r.x += offset[0]
-            r.y += offset[1]
-            indicator_r = 5
-            indicator_pos = (r.right - 12, r.top + 12)
-            indicator_color = (80, 220, 120) if self.toggled else (100, 100, 120)
-            pygame.draw.circle(surface, indicator_color, indicator_pos, indicator_r)
+        if not self._rect:
+            return
+
+        r = self._rect.copy()
+        r.x += offset[0]
+        r.y += offset[1]
+
+        track_w, track_h = 42, 22
+        track = pygame.Rect(
+            r.right - track_w - 14, r.centery - track_h // 2,
+            track_w, track_h
+        )
+        track_color = (74, 214, 128) if self.toggled else (104, 106, 128)
+        style.draw_soft_rect(
+            surface, track, track_color,
+            235 if self.toggled else 150, radius=track_h // 2
+        )
+
+        knob_r = track_h // 2 - 4
+        knob_x = (track.right - knob_r - 3) if self.toggled else (track.left + knob_r + 3)
+        pygame.draw.circle(
+            surface, (250, 252, 255), (knob_x, track.centery), knob_r
+        )
 
 
 class ImageButton(Button):

@@ -1,202 +1,116 @@
-# 🔤 Гайд по шрифтам для botyaraclick
+# 🔤 Шрифты в botyaraclick
 
-## Где скачать
+## Коротко
 
-Все шрифты бесплатные с Google Fonts: https://fonts.google.com/
-Лицензия: OFL (SIL Open Font License) — можно использовать бесплатно
-в любых проектах, включая распространение.
-
-## Куда класть
-
-Все файлы шрифтов кладутся в:
-```
-botyaraclick/assets/fonts/
-```
-
-## Список шрифтов и файлов
-
-### 1. Montserrat (Default тема + Минимализм)
-- **Ссылка:** https://fonts.google.com/specimen/Montserrat
-- **Скачать начертания:** Regular (400), Bold (700)
-- **Файлы для проекта:**
-  ```
-  assets/fonts/Montserrat-Regular.ttf
-  assets/fonts/Montserrat-Bold.ttf
-  ```
-- **Как скачать:**
-  1. Открой ссылку
-  2. Нажми "Download family"
-  3. Распакуй ZIP
-  4. Из папки `static/` скопируй `Montserrat-Regular.ttf` и `Montserrat-Bold.ttf`
-
----
-
-### 2. Orbitron (Киберпанк / Неон)
-- **Ссылка:** https://fonts.google.com/specimen/Orbitron
-- **Скачать начертания:** Regular (400), Bold (700)
-- **Файлы для проекта:**
-  ```
-  assets/fonts/Orbitron-Regular.ttf
-  assets/fonts/Orbitron-Bold.ttf
-  ```
-- **Как скачать:**
-  1. Открой ссылку
-  2. "Download family"
-  3. Из папки `static/` скопируй нужные файлы
-
----
-
-### 3. Comfortaa (Уютный Лес)
-- **Ссылка:** https://fonts.google.com/specimen/Comfortaa
-- **Скачать начертания:** Regular (400), Bold (700)
-- **Файлы для проекта:**
-  ```
-  assets/fonts/Comfortaa-Regular.ttf
-  assets/fonts/Comfortaa-Bold.ttf
-  ```
-
----
-
-### 4. Pixelify Sans (Ретро 8-bit)
-- **Ссылка:** https://fonts.google.com/specimen/Pixelify+Sans
-- **Скачать начертания:** Regular (400), Bold (700)
-- **Файлы для проекта:**
-  ```
-  assets/fonts/PixelifySans-Regular.ttf
-  assets/fonts/PixelifySans-Bold.ttf
-  ```
-
----
-
-### 5. Cinzel (Королевское Золото)
-- **Ссылка:** https://fonts.google.com/specimen/Cinzel
-- **Скачать начертания:** Regular (400), Bold (700)
-- **Файлы для проекта:**
-  ```
-  assets/fonts/Cinzel-Regular.ttf
-  assets/fonts/Cinzel-Bold.ttf
-  ```
-
----
-
-### 6. Exo 2 (Глубокий Космос)
-- **Ссылка:** https://fonts.google.com/specimen/Exo+2
-- **Скачать начертания:** Regular (400), Bold (700)
-- **Файлы для проекта:**
-  ```
-  assets/fonts/Exo2-Regular.ttf
-  assets/fonts/Exo2-Bold.ttf
-  ```
-
----
-
-### 7. Sniglet (Конфетная Страна)
-- **Ссылка:** https://fonts.google.com/specimen/Sniglet
-- **Скачать начертания:** Regular (400) — Bold нет, используем Regular дважды
-- **Файлы для проекта:**
-  ```
-  assets/fonts/Sniglet-Regular.ttf
-  ```
-- **Примечание:** У этого шрифта нет Bold, игра автоматически используем Regular вместо Bold.
-
----
-
-### 8. Fira Code (Хакер / Terminal)
-- **Ссылка:** https://fonts.google.com/specimen/Fira+Code
-- **Скачать начертания:** Regular (400), Bold (700)
-- **Файлы для проекта:**
-  ```
-  assets/fonts/FiraCode-Regular.ttf
-  assets/fonts/FiraCode-Bold.ttf
-  ```
-
----
-
-### 9. Bubblegum Sans (Океанская Бездна)
-- **Ссылка:** https://fonts.google.com/specimen/Bubblegum+Sans
-- **Скачать начертания:** Regular (400) — Bold нет
-- **Файлы для проекта:**
-  ```
-  assets/fonts/BubblegumSans-Regular.ttf
-  ```
-
----
-
-### 10. Rubik Glitch (Лавовая Пещера)
-- **Ссылка:** https://fonts.google.com/specimen/Rubik+Glitch
-- **Скачать начертания:** Regular (400) — Bold нет
-- **Файлы для проекта:**
-  ```
-  assets/fonts/RubikGlitch-Regular.ttf
-  ```
-
----
-
-### 11. Creepster (Хэллоуин)
-- **Ссылка:** https://fonts.google.com/specimen/Creepster
-- **Скачать начертания:** Regular (400) — Bold нет
-- **Файлы для проекта:**
-  ```
-  assets/fonts/Creepster-Regular.ttf
-  ```
-
----
-
-### 12. Caveat (Зимняя Сказка)
-- **Ссылка:** https://fonts.google.com/specimen/Caveat
-- **Скачать начертания:** Regular (400), Bold (700)
-- **Файлы для проекта:**
-  ```
-  assets/fonts/Caveat-Regular.ttf
-  assets/fonts/Caveat-Bold.ttf
-  ```
-
----
-
-## Итоговая структура папки `assets/fonts/`
+**Все шрифты уже лежат в репозитории.** Ничего скачивать не нужно — игра
+полностью офлайн. Папка: `assets/fonts/`.
 
 ```
 assets/fonts/
-├── Montserrat-Regular.ttf
+├── Montserrat-Regular.ttf      # базовая тема + фолбэк для кириллицы
 ├── Montserrat-Bold.ttf
-├── Orbitron-Regular.ttf
-├── Orbitron-Bold.ttf
-├── Comfortaa-Regular.ttf
-├── Comfortaa-Bold.ttf
-├── PixelifySans-Regular.ttf
-├── PixelifySans-Bold.ttf
-├── Cinzel-Regular.ttf
-├── Cinzel-Bold.ttf
-├── Exo2-Regular.ttf
-├── Exo2-Bold.ttf
-├── Sniglet-Regular.ttf
-├── FiraCode-Regular.ttf
-├── FiraCode-Bold.ttf
+├── NotoEmoji-Regular.ttf       # ЭМОДЗИ 🚀 🏆 🤮 ⏸ ✨
+├── Orbitron-Regular.ttf / -Bold.ttf
+├── Comfortaa-Regular.ttf / -Bold.ttf
+├── PixelifySans-Regular.ttf / -Bold.ttf
+├── Cinzel-Regular.ttf / -Bold.ttf
+├── Exo2-Regular.ttf / -Bold.ttf
+├── Sniglet-Regular.ttf / -Bold.ttf
+├── FiraCode-Regular.ttf / -Bold.ttf
 ├── BubblegumSans-Regular.ttf
 ├── RubikGlitch-Regular.ttf
 ├── Creepster-Regular.ttf
-├── Caveat-Regular.ttf
-└── Caveat-Bold.ttf
+├── Caveat-Regular.ttf / -Bold.ttf
+└── licenses/                   # тексты лицензий OFL (обязательны при раздаче)
 ```
 
-**Всего: 20 файлов шрифтов**
+## Как это работает
 
-## Быстрый способ скачать все сразу
+`ui/fonts.py` содержит `FallbackFont` — обёртку над `pygame.font.Font`.
 
-1. Открой каждую ссылку выше
-2. Нажми "Download family" (кнопка справа сверху)
-3. Распакуй каждый ZIP
-4. Скопируй нужные .ttf файлы в `assets/fonts/`
-5. Переименуй если нужно (чтобы имена совпадали с таблицей выше)
+pygame сам **не умеет** подставлять глифы из другого шрифта: если в шрифте
+темы нет символа, рисуется «тофу» ▯. Поэтому `FallbackFont`:
 
-## Лицензия
+1. режет строку на кластеры (буква / эмодзи / составное эмодзи 👨‍👩‍👧 / флаг 🇷🇺);
+2. читает таблицу `cmap` каждого шрифта и смотрит, где реально есть нужный символ;
+3. рисует каждый кусок «своим» шрифтом и склеивает результат по базовой линии.
 
-Все шрифты распространяются под **SIL Open Font License (OFL)**:
-- ✅ Можно использовать бесплатно
-- ✅ Можно распространять вместе с проектом
-- ✅ Можно модифицировать
-- ✅ Не нужно платить автору
-- ✅ Подходит для некоммерческих и коммерческих проектов
-- ❌ Нельзя продавать шрифт отдельно
+Порядок поиска глифа:
 
-Подробнее: https://scripts.sil.org/cms/scripts/page.php?site_id=nrsi&id=OFL
+| Приоритет | Шрифт | Зачем |
+|---|---|---|
+| 1 | шрифт темы (Orbitron, Cinzel, …) | основной стиль |
+| 2 | **Montserrat** | кириллица, которой нет в латинских шрифтах |
+| 3 | **NotoEmoji-Regular.ttf** | эмодзи (монохромные, тонируются цветом текста) |
+
+Результат: «Привет 🚀 мир» в теме Cyberpunk рисуется как
+Orbitron («Hello») + Montserrat («Привет мир») + Noto Emoji («🚀»).
+
+> Эмодзи специально **монохромные**: SDL_ttf 2.20 (внутри pygame 2.6) не
+> умеет рендерить цветные CBDT-шрифты вроде NotoColorEmoji. Монохромные
+> отлично масштабируются, не «мылятся» и красятся в цвет текста.
+
+## Использование в коде
+
+```python
+from ui.fonts import get_font, load_theme_fonts
+
+font = get_font(24)                    # обычный
+font = get_font(42, bold=True)         # жирный
+font = get_font(14, family="FiraCode") # конкретная тема
+
+# Готовый набор для экрана (title/large/normal/small/tiny/...)
+fonts = load_theme_fonts("Montserrat")
+```
+
+Шрифты кешируются по `(family, bold, size)`, отрисованные строки — тоже,
+поэтому в игровом цикле это не тормозит (2000 строк ≈ 0.16 с суммарно).
+
+## Список семейств и тем
+
+| Семейство | Файлы | Кириллица |
+|---|---|---|
+| Montserrat (default, Minimalism) | `Montserrat-{Regular,Bold}.ttf` | ✅ |
+| Orbitron (Cyberpunk) | `Orbitron-{Regular,Bold}.ttf` | — (фолбэк) |
+| Comfortaa (Cozy Forest) | `Comfortaa-{Regular,Bold}.ttf` | ✅ |
+| PixelifySans (Retro 8-bit) | `PixelifySans-{Regular,Bold}.ttf` | — (фолбэк) |
+| Cinzel (Royal Gold) | `Cinzel-{Regular,Bold}.ttf` | — (фолбэк) |
+| Exo2 (Deep Space) | `Exo2-{Regular,Bold}.ttf` | ✅ |
+| Sniglet (Candy Land) | `Sniglet-{Regular,Bold}.ttf` | — (фолбэк) |
+| FiraCode (Hacker) | `FiraCode-{Regular,Bold}.ttf` | ✅ |
+| BubblegumSans (Deep Ocean) | `BubblegumSans-Regular.ttf` | — (фолбэк) |
+| RubikGlitch (Infernal) | `RubikGlitch-Regular.ttf` | — (фолбэк) |
+| Creepster (Halloween) | `Creepster-Regular.ttf` | — (фолбэк) |
+| Caveat (Winter) | `Caveat-{Regular,Bold}.ttf` | ✅ |
+
+Даже если у шрифта темы нет кириллицы, русский текст всё равно читается —
+за счёт второго слоя фолбэка.
+
+## Источники и лицензии
+
+Все шрифты — **SIL Open Font License 1.1** (можно использовать и
+распространять бесплатно, в том числе в коммерческих проектах).
+
+Источник: [Google Fonts](https://github.com/google/fonts) (репозиторий
+`google/fonts`, каталог `ofl/<family>/`).
+
+Вариативные шрифты (`Montserrat[wght].ttf`, `Orbitron[wght].ttf`, …) были
+разложены на статические начертания Regular (400) и Bold (700) через
+`fontTools.varLib.instancer`, чтобы pygame корректно рисовал жирный текст.
+
+Тексты лицензий лежат в `assets/fonts/licenses/*-OFL.txt` — их нужно
+сохранять при распространении игры.
+
+## Добавить свой шрифт
+
+1. Положите `.ttf` в `assets/fonts/`.
+2. Добавьте семейство в `THEME_FONTS` в `data/themes.py`:
+
+```python
+"Montserrat": {"regular": "Montserrat-Regular.ttf", "bold": "Montserrat-Bold.ttf"},
+"MyFont":     {"regular": "MyFont-Regular.ttf",     "bold": "MyFont-Bold.ttf"},
+```
+
+3. Укажите `"font_file": "MyFont"` у нужной темы.
+
+Эмодзи и кириллица подхватятся автоматически — фолбэк общий для всех тем.

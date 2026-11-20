@@ -21,6 +21,7 @@ from data.prestige import (
 )
 from config import PRESTIGE_THRESHOLD
 from locales.locale_manager import t
+from ui.fonts import get_font
 
 
 class PrestigeScreen:
@@ -60,11 +61,11 @@ class PrestigeScreen:
             self._fonts = fonts_dict
         else:
             self._fonts = {
-                "title": pygame.font.Font(None, 42),
-                "large": pygame.font.Font(None, 30),
-                "button": pygame.font.Font(None, 24),
-                "normal": pygame.font.Font(None, 20),
-                "small": pygame.font.Font(None, 16),
+                "title": get_font(42, bold=True),
+                "large": get_font(30, bold=True),
+                "button": get_font(24),
+                "normal": get_font(20),
+                "small": get_font(16),
             }
 
     def _init_ui(self):
@@ -343,7 +344,12 @@ class PrestigeScreen:
 
         # Всего заработано / количество престижей
         if font_small:
-            total_str = f"Total earned: {format_money(total_earned, self._num_format)} | Prestige #{prestige_count} | Total RP earned: {total_rp}"
+            total_str = t(
+                "prestige.totals",
+                earned=format_money(total_earned, self._num_format),
+                count=prestige_count,
+                rp=total_rp,
+            )
             total_surf = font_small.render(total_str, True, dim_color)
             total_rect = total_surf.get_rect(center=(self.sw // 2, info_y))
             surface.blit(total_surf, total_rect)
@@ -357,12 +363,11 @@ class PrestigeScreen:
             bar_x = self.sw // 2 - bar_w // 2
             bar_y = info_y + 5
 
-            pygame.draw.rect(surface, (40, 40, 55),
-                            (bar_x, bar_y, bar_w, bar_h), border_radius=6)
-            if progress > 0:
-                fill_w = int(bar_w * progress)
-                pygame.draw.rect(surface, rp_color,
-                                (bar_x, bar_y, fill_w, bar_h), border_radius=6)
+            from ui import style as _style
+            _style.draw_progress_bar(
+                surface, pygame.Rect(bar_x, bar_y, bar_w, bar_h),
+                progress, rp_color, (255, 255, 255), bg_alpha=26
+            )
 
             pct_str = f"{progress * 100:.1f}%"
             pct_surf = font_small.render(pct_str, True, text_color)
@@ -449,24 +454,37 @@ class PrestigeScreen:
                         effect_type = up["effect_type"]
                         effect_value = up["effect_value"]
                         if effect_type in ("all_multiplier", "click_multiplier",
-                                          "passive_multiplier"):
-                            eff_str = f"+{effect_value * 100:.0f}% per level"
+                                          "passive_multiplier", "crit_chance",
+                                          "event_luck"):
+                            eff_str = t(
+                                "prestige.eff_percent",
+                                value=f"{effect_value * 100:.0f}"
+                            )
                         elif effect_type == "discount":
-                            eff_str = f"-{effect_value * 100:.0f}% per level"
-                        elif effect_type == "crit_chance":
-                            eff_str = f"+{effect_value * 100:.0f}% per level"
+                            eff_str = t(
+                                "prestige.eff_percent_neg",
+                                value=f"{effect_value * 100:.0f}"
+                            )
                         elif effect_type == "crit_multiplier":
-                            eff_str = f"+{effect_value:.0f}x per level"
+                            eff_str = t(
+                                "prestige.eff_mult", value=f"{effect_value:.0f}"
+                            )
                         elif effect_type == "auto_click":
-                            eff_str = f"+{effect_value:.0f}/sec per level"
+                            eff_str = t(
+                                "prestige.eff_per_sec",
+                                value=f"{effect_value:.0f}"
+                            )
                         elif effect_type == "starting_money":
-                            eff_str = f"+${format_number(effect_value, self._num_format)} per level"
+                            eff_str = t(
+                                "prestige.eff_money",
+                                value=format_number(effect_value, self._num_format)
+                            )
                         elif effect_type == "golden_time_bonus":
-                            eff_str = f"+{effect_value}s per level"
-                        elif effect_type == "event_luck":
-                            eff_str = f"+{effect_value * 100:.0f}% per level"
+                            eff_str = t(
+                                "prestige.eff_seconds", value=effect_value
+                            )
                         else:
-                            eff_str = f"+{effect_value} per level"
+                            eff_str = t("prestige.eff_plain", value=effect_value)
 
                         eff_surf = font_small.render(eff_str, True, (130, 160, 200))
                         surf.blit(eff_surf, (item_x + 12, item_y + 30))
@@ -474,10 +492,12 @@ class PrestigeScreen:
                     # Стоимость / статус
                     if font_small:
                         if is_maxed:
-                            status_str = f"MAX (Lv.{count})"
+                            status_str = t("prestige.max_level", count=count)
                             status_c = (100, 200, 120)
                         else:
-                            status_str = f"Cost: {cost} RP  |  Lv.{count}"
+                            status_str = t(
+                                "prestige.cost_line", cost=cost, count=count
+                            )
                             if max_c != -1:
                                 status_str += f"/{max_c}"
                             status_c = rp_color if can_afford else (180, 100, 100)

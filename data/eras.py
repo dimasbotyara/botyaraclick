@@ -13,8 +13,8 @@ ERAS = [
             "bottom": (40, 35, 30),
         },
         "ambient_particles": "dust",
-        "click_object_color": (120, 120, 130),
-        "click_object_glow": (80, 80, 100),
+        "click_object_color": (156, 126, 96),
+        "click_object_glow": (128, 96, 60),
     },
     {
         "id": "home_office",

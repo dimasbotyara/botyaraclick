@@ -13,6 +13,7 @@ botyaraclick - effects/floating_text.py
 import pygame
 import random
 import math
+from ui.fonts import get_font
 
 
 class FloatingText:
@@ -147,15 +148,7 @@ class FloatingTextManager:
         """Получает шрифт нужного размера из кеша."""
         size = max(8, int(size))
         if size not in self._font_cache:
-            try:
-                if self._base_font_name:
-                    self._font_cache[size] = pygame.font.Font(
-                        self._base_font_name, size
-                    )
-                else:
-                    self._font_cache[size] = pygame.font.Font(None, size)
-            except (pygame.error, FileNotFoundError):
-                self._font_cache[size] = pygame.font.Font(None, size)
+            self._font_cache[size] = get_font(size, bold=True)
         return self._font_cache[size]
 
     def add_click(self, x, y, amount, is_crit=False, colors=None):

@@ -31,6 +31,8 @@ from ui.panel import Panel
 from ui.scrollbar import ScrollArea
 from ui.tooltip import TooltipManager
 from ui.notification import NotificationManager
+from ui.fonts import load_theme_fonts, get_font
+from ui import style
 from effects.particles import ParticleSystem
 from effects.floating_text import FloatingTextManager
 from effects.animations import AnimationManager
@@ -47,8 +49,40 @@ from data.themes import get_theme
 from locales.locale_manager import t
 
 
+def fit_text(text, font, max_width, ellipsis="…"):
+    """Обрезает текст по фактической ширине в пикселях (а не по буквам)."""
+    if not font or not text:
+        return text
+    if font.size(text)[0] <= max_width:
+        return text
+
+    result = text
+    while result and font.size(result + ellipsis)[0] > max_width:
+        result = result[:-1]
+    result = result.rstrip()
+    return (result + ellipsis) if result else ellipsis
+
+
 class GameScreen:
     """Основной игровой экран."""
+
+    # Иконки эр и категорий магазина
+    ERA_ICONS = ["📟", "💻", "🚀", "🏢", "👑", "🌌", "🪐"]
+    CATEGORY_ICONS = {
+        "equipment": "🖥",
+        "staff": "👥",
+        "infrastructure": "🏗",
+        "products": "📦",
+        "skills": "🎯",
+        "empire": "🏛",
+    }
+
+    # Высоты зон магазина
+    SHOP_PAD = 6
+    CAT_BTN_H = 32
+    CAT_AREA_H = 74
+    BRANCH_BTN_H = 28
+    BRANCH_AREA_H = 38
 
     def __init__(self, screen_width, screen_height,
                  save_manager, sound_manager, locale_manager):
@@ -130,19 +164,11 @@ class GameScreen:
         if fonts_dict:
             self._fonts = fonts_dict
         else:
-            self._fonts = {
-                "title": pygame.font.Font(None, 36),
-                "large": pygame.font.Font(None, 30),
-                "button": pygame.font.Font(None, 24),
-                "normal": pygame.font.Font(None, 20),
-                "small": pygame.font.Font(None, 16),
-                "tiny": pygame.font.Font(None, 14),
-                "money_big": pygame.font.Font(None, 32),
-                "click_text": pygame.font.Font(None, 42),
-            }
+            self._fonts = load_theme_fonts()
 
         self.tooltip.font = self._fonts.get("small")
-        self.notifications.font = self._fonts.get("normal")
+        # Уведомления — компактные, снизу экрана
+        self.notifications.font = self._fonts.get("small")
         self.notifications.small_font = self._fonts.get("small")
 
         font_path = None
@@ -195,29 +221,34 @@ class GameScreen:
 
         # === Нижние кнопки ===
         bottom_btns = [
-            ("tree", t("upgrade_tree.title")),
-            ("achievements", t("achievements.title")),
-            ("themes", t("themes.title")),
-            ("statistics", t("statistics.title")),
-            ("prestige", t("prestige.title")),
+            ("tree", "🌳", t("upgrade_tree.title")),
+            ("achievements", "🏆", t("achievements.title")),
+            ("themes", "🎨", t("themes.title")),
+            ("statistics", "📊", t("statistics.title")),
+            ("prestige", "⭐", t("prestige.title")),
         ]
         btn_count = len(bottom_btns)
-        btn_w = min(160, (self.sw - 20) // btn_count - 5)
-        btn_h = BOTTOM_PANEL_HEIGHT - 10
-        total_w = btn_count * btn_w + (btn_count - 1) * 5
+        gap = 8
+        btn_w = min(190, (self.sw - 24) // btn_count - gap)
+        btn_h = BOTTOM_PANEL_HEIGHT - 12
+        total_w = btn_count * btn_w + (btn_count - 1) * gap
         start_x = (self.sw - total_w) // 2
+        btn_font = self._fonts.get("tiny")
 
         self._bottom_buttons.clear()
-        for i, (bid, btext) in enumerate(bottom_btns):
+        for i, (bid, icon, btext) in enumerate(bottom_btns):
             btn = Button(
-                start_x + i * (btn_w + 5),
-                self.sh - BOTTOM_PANEL_HEIGHT + 5,
+                start_x + i * (btn_w + gap),
+                self.sh - BOTTOM_PANEL_HEIGHT + 6,
                 btn_w, btn_h,
-                text=btext,
-                font=self._fonts.get("small"),
-                color=(50, 50, 70),
-                hover_color=(70, 70, 95),
-                border_radius=6,
+                text=fit_text(btext, btn_font, btn_w - 36),
+                icon=icon,
+                font=btn_font,
+                color=(44, 48, 64),
+                hover_color=(66, 74, 100),
+                text_color=(206, 214, 232),
+                border_radius=9,
+                tooltip=btext,
                 tag=bid,
             )
             self._bottom_buttons[bid] = btn
@@ -233,10 +264,10 @@ class GameScreen:
         self._build_shop_categories()
 
         # Скролл для предметов магазина
-        cat_area_h = 45  # высота кнопок категорий
-        branch_area_h = 35
-        items_top = shop_top + cat_area_h + branch_area_h + 5
-        items_height = shop_height - cat_area_h - branch_area_h - 10
+        cat_area_h = self.CAT_AREA_H        # сетка категорий (2 ряда)
+        branch_area_h = self.BRANCH_AREA_H  # «пилюли» веток
+        items_top = shop_top + cat_area_h + branch_area_h
+        items_height = shop_height - cat_area_h - branch_area_h - 8
 
         self._shop_scroll = ScrollArea(
             shop_x + 5, items_top,
@@ -257,29 +288,35 @@ class GameScreen:
         self._initialized = True
 
     def _build_shop_categories(self):
-        """Строит кнопки категорий магазина."""
+        """Строит сетку категорий магазина (2 ряда по 3)."""
         shop_x = self.sw - SIDE_PANEL_WIDTH
         shop_top = TOP_PANEL_HEIGHT
         font = self._fonts.get("tiny")
 
         self._shop_cat_buttons.clear()
-        cat_btn_w = (SIDE_PANEL_WIDTH - 10) // len(CATEGORY_ORDER)
+
+        cols = 3
+        pad = self.SHOP_PAD
+        gap = 4
+        btn_w = (SIDE_PANEL_WIDTH - pad * 2 - gap * (cols - 1)) // cols
 
         for i, cat_id in enumerate(CATEGORY_ORDER):
-            cat_name = t(f"categories.{cat_id}")
-            # Сокращаем если не влезает
-            if font and font.size(cat_name)[0] > cat_btn_w - 6:
-                cat_name = cat_name[:6] + ".."
+            row, col = divmod(i, cols)
+            name = fit_text(t(f"categories.{cat_id}"), font, btn_w - 34)
+            active = cat_id == self._shop_category
 
             btn = Button(
-                shop_x + 5 + i * cat_btn_w,
-                shop_top + 3,
-                cat_btn_w - 2, 38,
-                text=cat_name,
+                shop_x + pad + col * (btn_w + gap),
+                shop_top + pad + row * (self.CAT_BTN_H + gap),
+                btn_w, self.CAT_BTN_H,
+                text=name,
+                icon=self.CATEGORY_ICONS.get(cat_id, ""),
                 font=font,
-                color=(60, 100, 160) if cat_id == self._shop_category else (45, 45, 65),
-                hover_color=(75, 115, 175),
-                border_radius=5,
+                color=(56, 104, 176) if active else (40, 44, 60),
+                hover_color=(72, 124, 200) if active else (54, 60, 82),
+                text_color=(255, 255, 255) if active else (185, 192, 214),
+                border_radius=8,
+                tooltip=t(f"categories.{cat_id}"),
                 tag=cat_id,
             )
             self._shop_cat_buttons.append(btn)
@@ -287,35 +324,39 @@ class GameScreen:
         self._build_shop_branches()
 
     def _build_shop_branches(self):
-        """Строит кнопки веток текущей категории."""
+        """Строит «пилюли» веток текущей категории."""
         shop_x = self.sw - SIDE_PANEL_WIDTH
-        shop_top = TOP_PANEL_HEIGHT + 43
+        shop_top = TOP_PANEL_HEIGHT + self.CAT_AREA_H
         font = self._fonts.get("tiny")
 
         self._shop_branch_buttons.clear()
 
         cat_data = CATEGORIES.get(self._shop_category, {})
         branches = cat_data.get("branches", [])
-
         if not branches:
             return
 
-        br_btn_w = (SIDE_PANEL_WIDTH - 10) // max(len(branches), 1)
+        pad = self.SHOP_PAD
+        gap = 4
+        br_btn_w = (SIDE_PANEL_WIDTH - pad * 2 - gap * (len(branches) - 1)) // len(branches)
 
         for i, br_id in enumerate(branches):
-            br_name = t(f"branches.{br_id}")
-            if font and font.size(br_name)[0] > br_btn_w - 6:
-                br_name = br_name[:7] + ".."
+            active = br_id == self._shop_branch
+            name = fit_text(t(f"branches.{br_id}"), font, br_btn_w - 10)
 
             btn = Button(
-                shop_x + 5 + i * br_btn_w,
-                shop_top,
-                br_btn_w - 2, 30,
-                text=br_name,
+                shop_x + pad + i * (br_btn_w + gap),
+                shop_top + 2,
+                br_btn_w, self.BRANCH_BTN_H,
+                text=name,
                 font=font,
-                color=(55, 90, 140) if br_id == self._shop_branch else (40, 40, 58),
-                hover_color=(70, 105, 155),
-                border_radius=4,
+                color=(46, 74, 116) if active else (34, 37, 50),
+                hover_color=(58, 92, 140) if active else (46, 51, 68),
+                text_color=(235, 242, 255) if active else (150, 158, 180),
+                border_radius=self.BRANCH_BTN_H // 2,
+                border_width=1 if active else 0,
+                border_color=(96, 150, 220) if active else None,
+                tooltip=t(f"branches.{br_id}"),
                 tag=br_id,
             )
             self._shop_branch_buttons.append(btn)
@@ -332,6 +373,10 @@ class GameScreen:
     def handle_event(self, event):
         """Обрабатывает все события."""
         self._init_ui()
+
+        # Уведомления рисуются поверх игры — клик по ним просто закрывает их
+        if self.notifications.handle_event(event):
+            return True
 
         # Клавиатура
         if event.type == pygame.KEYDOWN:
@@ -470,7 +515,7 @@ class GameScreen:
         scroll_y = int(self._shop_scroll.scroll_y)
 
         items = self._get_shop_items()
-        item_h = 65
+        item_h = 76
         items_top = self._shop_scroll.rect.top
 
         for i, item in enumerate(items):
@@ -863,62 +908,109 @@ class GameScreen:
         text_color = theme.get("text_color", (230, 230, 240))
         money_color = theme.get("money_color", (80, 220, 120))
         accent = theme.get("accent_color", (50, 150, 255))
+        dim_color = theme.get("text_dim", (150, 150, 170))
+        border_color = theme.get("panel_border", (60, 60, 80))
 
-        # Фон панели
-        panel_rect = pygame.Rect(
-            offset[0], offset[1],
-            self.sw, TOP_PANEL_HEIGHT
-        )
-        panel_surf = pygame.Surface((self.sw, TOP_PANEL_HEIGHT), pygame.SRCALPHA)
-        pygame.draw.rect(panel_surf, (*panel_color, 230),
-                         (0, 0, self.sw, TOP_PANEL_HEIGHT))
-        surface.blit(panel_surf, panel_rect.topleft)
-
-        # Разделительная линия
-        pygame.draw.line(
-            surface,
-            theme.get("panel_border", (60, 60, 80)),
-            (offset[0], TOP_PANEL_HEIGHT + offset[1]),
-            (self.sw + offset[0], TOP_PANEL_HEIGHT + offset[1])
+        bar = pygame.Rect(offset[0], offset[1], self.sw, TOP_PANEL_HEIGHT)
+        style.draw_panel(
+            surface, bar, panel_color, radius=0,
+            border_color=None, gradient=0.18
         )
 
-        font = self._fonts.get("normal")
         big_font = self._fonts.get("money_big")
-        small_font = self._fonts.get("small")
-
-        if not font:
+        font = self._fonts.get("normal")
+        small = self._fonts.get("small")
+        tiny = self._fonts.get("tiny")
+        if not (font and big_font):
             return
 
         money = self.save.get_save_data("money", 0)
         per_click = self.economy.click_power
         per_sec = self.economy.passive_income
 
-        # Баланс
-        money_str = format_money(money, self._num_format)
-        money_surf = big_font.render(money_str, True, money_color) if big_font else font.render(money_str, True, money_color)
-        surface.blit(money_surf, (20 + offset[0], 15 + offset[1]))
+        center_y = offset[1] + TOP_PANEL_HEIGHT // 2
 
-        # $/клик
-        click_str = f"{format_money(per_click, self._num_format)}/{t('game.per_click')}"
-        click_surf = font.render(click_str, True, accent)
-        surface.blit(click_surf, (280 + offset[0], 20 + offset[1]))
+        # --- Баланс ---
+        x = 20 + offset[0]
+        if small:
+            coin = small.render("💰", True, (255, 206, 84))
+            surface.blit(
+                coin, (x, center_y - coin.get_height() // 2 + 1)
+            )
+            x += coin.get_width() + 9
 
-        # $/сек
-        sec_str = f"{format_money(per_sec, self._num_format)}/{t('game.per_second')}"
-        sec_surf = font.render(sec_str, True, text_color)
-        surface.blit(sec_surf, (520 + offset[0], 20 + offset[1]))
+        money_surf = big_font.render(
+            format_money(money, self._num_format), True, money_color
+        )
+        surface.blit(money_surf, (x, center_y - money_surf.get_height() // 2))
+        x += money_surf.get_width() + 18
 
-        # Эра
         era_data = get_era_data(self._current_era)
+        era_icon = self.ERA_ICONS[min(self._current_era, len(self.ERA_ICONS) - 1)]
         era_name = t(f"eras.{era_data['id']}")
-        era_str = f"{t('game.era')}: {era_name}"
-        if small_font:
-            era_surf = small_font.render(era_str, True, theme.get("text_dim", (150, 150, 170)))
-            surface.blit(era_surf, (740 + offset[0], 22 + offset[1]))
+        era_color = era_data.get("click_object_color", accent)
+
+        blocks = [
+            (t("game.per_click").upper(),
+             format_money(per_click, self._num_format), accent),
+            (t("game.per_second").upper(),
+             format_money(per_sec, self._num_format), money_color),
+            (t("game.era").upper(), f"{era_icon} {era_name}", era_color),
+        ]
+
+        # Не залезаем на кнопку паузы и панель магазина
+        max_x = self.sw - SIDE_PANEL_WIDTH - 10
+
+        for idx, (label, value, color) in enumerate(blocks):
+            label_surf = tiny.render(label, True, dim_color) if tiny else None
+            value_surf = small.render(value, True, color) if small else None
+            if not (label_surf and value_surf):
+                continue
+
+            block_w = max(label_surf.get_width(), value_surf.get_width())
+            if x + block_w + 30 > max_x:
+                break
+
+            # разделитель
+            sep_h = 26
+            sep_alpha = pygame.Surface((1, sep_h), pygame.SRCALPHA)
+            sep_alpha.fill((*border_color, 120))
+            surface.blit(sep_alpha, (x, center_y - sep_h // 2))
+            x += 16
+
+            surface.blit(label_surf, (x, center_y - 19))
+            surface.blit(value_surf, (x, center_y + 1))
+            x += block_w + 16
+
+        # --- Тонкий прогресс до следующей эры по нижней кромке ---
+        self._draw_era_progress(surface, theme, offset, era_color)
 
         # Кнопка паузы
         if self._pause_button:
             self._pause_button.draw(surface, theme, offset=offset)
+
+    def _draw_era_progress(self, surface, theme, offset, era_color):
+        """Полоска прогресса до следующей эры внизу верхней панели."""
+        from data.eras import ERAS
+
+        if self._current_era + 1 >= len(ERAS):
+            return
+
+        current_unlock = ERAS[self._current_era].get("unlock_money", 0)
+        next_unlock = ERAS[self._current_era + 1].get("unlock_money", 1)
+        total_earned = self.save.get_save_data("total_earned", 0)
+
+        span = max(1, next_unlock - current_unlock)
+        progress = (total_earned - current_unlock) / span
+
+        bar_rect = pygame.Rect(
+            offset[0], offset[1] + TOP_PANEL_HEIGHT - 3, self.sw, 3
+        )
+        style.draw_progress_bar(
+            surface, bar_rect, progress, era_color,
+            (255, 255, 255, 18), radius=0
+        )
+
 
     def _draw_click_button(self, surface, theme, offset):
         """Рисует главную кнопку клика."""
@@ -929,96 +1021,79 @@ class GameScreen:
         cy = self._click_center[1] + offset[1]
         base_r = self._click_button_radius
 
-        # Масштаб от нажатия и наведения (БЕЗ авто-пульсации!)
-        scale = self.animations.click_bounce.scale * getattr(self, "_click_hover_scale", 1.0)
+        # Масштаб кнопки: ТОЛЬКО отклик на нажатие и плавное наведение.
+        # Никакой пульсации/«дыхания» в простое — кнопка статична.
+        scale = self.animations.click_bounce.scale * self._click_hover_scale
         r = max(10, int(base_r * scale))
 
         era_data = get_era_data(self._current_era)
         btn_color = era_data.get("click_object_color", (100, 140, 200))
         glow_color = era_data.get("click_object_glow", (60, 100, 180))
+        is_hovered = self._is_click_hovered
 
-        is_hovered = getattr(self, "_is_click_hovered", False)
-
-        # 1. Плавное свечение вокруг кнопки (усиливается при наведении)
-        glow_r = int(r * 1.5)
-        glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
-        base_alpha = 70 if is_hovered else 40
-        pygame.draw.circle(
-            glow_surf,
-            (*glow_color, base_alpha),
-            (glow_r, glow_r), glow_r
+        # 1. Мягкое свечение вокруг кнопки
+        style.draw_glow_circle(
+            surface, (cx, cy), int(r * 1.55), glow_color,
+            alpha=100 if is_hovered else 62
         )
-        if is_hovered:
-            pygame.draw.circle(
-                glow_surf,
-                (255, 255, 255, 30),
-                (glow_r, glow_r), int(r * 1.1)
+
+        # 2. Мягкая тень-эллипс под кнопкой
+        shadow_w = int(r * 1.9)
+        shadow_h = int(r * 0.55)
+        shadow = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+        for i in range(5, 0, -1):
+            ratio = i / 5
+            rect = pygame.Rect(
+                (shadow_w - int(shadow_w * ratio)) // 2,
+                (shadow_h - int(shadow_h * ratio)) // 2,
+                int(shadow_w * ratio), int(shadow_h * ratio)
             )
-        surface.blit(glow_surf, (cx - glow_r, cy - glow_r))
+            pygame.draw.ellipse(shadow, (0, 0, 0, 11), rect)
+        surface.blit(shadow, (cx - shadow_w // 2, cy + int(r * 0.80)))
 
-        # 2. Мягкая объёмная тень под кнопкой
-        shadow_surf = pygame.Surface((r * 2 + 10, r * 2 + 10), pygame.SRCALPHA)
-        pygame.draw.circle(shadow_surf, (0, 0, 0, 80), (r + 5, r + 7), r)
-        surface.blit(shadow_surf, (cx - r - 5, cy - r - 3))
+        # 3. Сфера (гладкий градиент + блик, кешируется по цвету эры)
+        d = r * 2
+        dome = style.radial_dome(d, btn_color)
+        surface.blit(dome, (cx - r, cy - r))
 
-        # 3. Основная сферическая кнопка с градиентом
-        main_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
-        center_color = tuple(min(255, int(c * 1.35)) for c in btn_color)
-        edge_color = tuple(max(0, int(c * 0.65)) for c in btn_color)
+        # 5. Значок эры в «медальоне»
+        icon = self.ERA_ICONS[min(self._current_era, len(self.ERA_ICONS) - 1)]
+        badge_r = max(13, int(r * 0.26))
+        badge_cy = cy - int(r * 0.50)
 
-        steps = 12
-        for i in range(steps):
-            step_r = int(r * (1 - i / (steps * 1.3)))
-            if step_r <= 0:
-                continue
-            t_val = i / steps
-            offset_x = r - int(r * 0.12 * t_val)
-            offset_y = r - int(r * 0.15 * t_val)
-            r_c = int(center_color[0] * t_val + edge_color[0] * (1 - t_val))
-            g_c = int(center_color[1] * t_val + edge_color[1] * (1 - t_val))
-            b_c = int(center_color[2] * t_val + edge_color[2] * (1 - t_val))
-            pygame.draw.circle(main_surf, (r_c, g_c, b_c), (offset_x, offset_y), step_r)
+        badge = pygame.Surface((badge_r * 2, badge_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(
+            badge, (0, 0, 0, 26), (badge_r, badge_r), badge_r
+        )
+        pygame.draw.circle(
+            badge, (255, 255, 255, 40), (badge_r, badge_r), badge_r, 1
+        )
+        surface.blit(badge, (cx - badge_r, badge_cy - badge_r))
 
-        # 4. Внешний кольцевой ободок (ярче при наведении)
-        ring_color = (255, 255, 255) if is_hovered else tuple(min(255, c + 50) for c in btn_color)
-        ring_width = 4 if is_hovered else 3
-        pygame.draw.circle(main_surf, ring_color, (r, r), r - 1, ring_width)
+        icon_font = get_font(max(14, int(badge_r * 1.6)))
+        icon_surf = icon_font.render(icon, True, (255, 255, 255))
+        surface.blit(
+            icon_surf, icon_surf.get_rect(center=(cx, badge_cy))
+        )
 
-        # 5. Верхний глянцевый блик
-        glare_w = int(r * 1.2)
-        glare_h = int(r * 0.5)
-        if glare_w > 0 and glare_h > 0:
-            glare_surf = pygame.Surface((glare_w, glare_h), pygame.SRCALPHA)
-            pygame.draw.ellipse(glare_surf, (255, 255, 255, 80 if is_hovered else 50), (0, 0, glare_w, glare_h))
-            main_surf.blit(glare_surf, (r - glare_w // 2, int(r * 0.1)))
+        # 6. Текст «КЛИК!»
+        text_size = max(18, int(r * 0.44))
+        text_font = get_font(text_size, bold=True)
+        click_text = t("game.click")
+        text_center = (cx, cy + int(r * 0.24))
 
-        surface.blit(main_surf, (cx - r, cy - r))
+        shadow_txt = text_font.render(click_text, True, (0, 0, 0))
+        shadow_txt.set_alpha(110)
+        surface.blit(
+            shadow_txt,
+            shadow_txt.get_rect(
+                center=(text_center[0], text_center[1] + 2)
+            )
+        )
 
-        # 6. Иконка эры + Текст
-        font = self._fonts.get("click_text")
-        small_font = self._fonts.get("button") or self._fonts.get("normal")
-
-        era_icons = ["📟", "💻", "🚀", "🏢", "👑", "🌌", "🪐"]
-        icon = era_icons[min(self._current_era, len(era_icons) - 1)]
-
-        if font:
-            click_text = t("game.click")
-            # Тень от текста
-            shadow_txt = font.render(click_text, True, (0, 0, 0))
-            shadow_rect = shadow_txt.get_rect(center=(cx + 2, cy + (12 if small_font else 2)))
-            surface.blit(shadow_txt, shadow_rect)
-
-            # Сам текст
-            txt_color = (255, 255, 200) if is_hovered else (255, 255, 255)
-            text_surf = font.render(click_text, True, txt_color)
-            text_rect = text_surf.get_rect(center=(cx, cy + (10 if small_font else 0)))
-
-            if small_font:
-                icon_surf = small_font.render(icon, True, (255, 255, 255))
-                icon_rect = icon_surf.get_rect(center=(cx, cy - 18))
-                surface.blit(icon_surf, icon_rect)
-
-            surface.blit(text_surf, text_rect)
+        txt_color = (255, 252, 220) if is_hovered else (255, 255, 255)
+        text_surf = text_font.render(click_text, True, txt_color)
+        surface.blit(text_surf, text_surf.get_rect(center=text_center))
 
     def _draw_golden_objects(self, surface, theme):
         """Рисует золотые летящие объекты."""
@@ -1094,31 +1169,46 @@ class GameScreen:
     def _draw_buff_indicators(self, surface, theme):
         """Рисует индикаторы активных баффов/дебаффов."""
         font = self._fonts.get("small")
+        tiny = self._fonts.get("tiny")
         if not font:
             return
 
-        x = 10
-        y = TOP_PANEL_HEIGHT + 10
+        x = 12
+        y = TOP_PANEL_HEIGHT + 12
 
         for buff in self.event_system.active_buffs:
             if not buff.alive:
                 continue
 
             is_positive = buff.event_type == "buff"
-            color = (60, 200, 100) if is_positive else (200, 60, 60)
+            color = (70, 210, 120) if is_positive else (230, 90, 90)
 
-            # Маленькая плашка
-            time_str = f"{buff.icon} {buff.time_left:.0f}s"
-            text_surf = font.render(time_str, True, color)
+            name = t(f"events.{buff.event_id}")
+            label = fit_text(name, font, 190)
+            text = f"{buff.icon} {label}  {buff.time_left:.0f}s"
+            text_surf = font.render(text, True, style.lighten(color, 0.35))
 
-            bg_w = text_surf.get_width() + 12
-            bg_h = text_surf.get_height() + 8
-            bg_surf = pygame.Surface((bg_w, bg_h), pygame.SRCALPHA)
-            pygame.draw.rect(bg_surf, (20, 20, 30, 180), (0, 0, bg_w, bg_h), border_radius=4)
-            surface.blit(bg_surf, (x, y))
-            surface.blit(text_surf, (x + 6, y + 4))
+            w = text_surf.get_width() + 20
+            h = text_surf.get_height() + 14
+            rect = pygame.Rect(x, y, w, h)
 
-            y += bg_h + 4
+            style.draw_panel(
+                surface, rect, (24, 26, 36), radius=9,
+                border_color=style.with_alpha(color, 120),
+                border_width=1, alpha=225, gradient=0.12,
+                shadow=True, shadow_alpha=40
+            )
+            surface.blit(text_surf, (x + 10, y + 5))
+
+            # Полоска остатка времени
+            if buff.duration > 0:
+                ratio = max(0.0, min(1.0, buff.time_left / buff.duration))
+                bar = pygame.Rect(x + 10, rect.bottom - 6, w - 20, 2)
+                style.draw_progress_bar(
+                    surface, bar, ratio, color, (255, 255, 255), bg_alpha=30
+                )
+
+            y += h + 6
 
     def _draw_shop_panel(self, surface, theme, offset):
         """Рисует правую панель магазина."""
@@ -1127,168 +1217,235 @@ class GameScreen:
         text_color = theme.get("text_color", (230, 230, 240))
         dim_color = theme.get("text_dim", (150, 150, 170))
         money_color = theme.get("money_color", (80, 220, 120))
-        btn_color = theme.get("button_color", (50, 100, 200))
         danger_color = theme.get("danger_color", (220, 60, 60))
+        accent = theme.get("accent_color", (50, 150, 255))
 
         shop_x = self.sw - SIDE_PANEL_WIDTH + offset[0]
         shop_y = TOP_PANEL_HEIGHT + offset[1]
         shop_h = self.sh - TOP_PANEL_HEIGHT - BOTTOM_PANEL_HEIGHT
 
-        # Фон панели
-        panel_surf = pygame.Surface((SIDE_PANEL_WIDTH, shop_h), pygame.SRCALPHA)
-        pygame.draw.rect(panel_surf, (*panel_color, 240),
-                         (0, 0, SIDE_PANEL_WIDTH, shop_h))
-        surface.blit(panel_surf, (shop_x, shop_y))
+        shop_rect = pygame.Rect(shop_x, shop_y, SIDE_PANEL_WIDTH, shop_h)
+        style.draw_panel(
+            surface, shop_rect, panel_color, radius=0,
+            gradient=0.14
+        )
 
-        # Разделитель
-        pygame.draw.line(surface, border_color,
-                         (shop_x, shop_y), (shop_x, shop_y + shop_h))
+        # Левая граница + мягкая тень на игровое поле
+        pygame.draw.line(
+            surface, border_color, (shop_x, shop_y), (shop_x, shop_y + shop_h)
+        )
+        edge_shadow = pygame.Surface((14, shop_h), pygame.SRCALPHA)
+        for i in range(14):
+            alpha = int(52 * (1 - i / 14))
+            pygame.draw.line(edge_shadow, (0, 0, 0, alpha), (i, 0), (i, shop_h))
+        surface.blit(edge_shadow, (shop_x - 14, shop_y))
 
-        # Кнопки категорий
+        # Кнопки категорий и веток
         for btn in self._shop_cat_buttons:
             btn.draw(surface, theme, offset=offset)
-
-        # Кнопки веток
         for btn in self._shop_branch_buttons:
             btn.draw(surface, theme, offset=offset)
 
+        # Разделитель под фильтрами
+        sep_y = TOP_PANEL_HEIGHT + self.CAT_AREA_H + self.BRANCH_AREA_H - 6
+        style.draw_separator(
+            surface, int(shop_x + 6), int(shop_x + SIDE_PANEL_WIDTH - 6),
+            sep_y + offset[1], border_color
+        )
+
         # Предметы магазина
-        if self._shop_scroll:
-            items = self._get_shop_items()
-            item_h = 65
-            self._shop_scroll.set_content_height(len(items) * item_h + 10)
+        if not self._shop_scroll:
+            return
 
-            def draw_items(surf, scroll_y):
-                font = self._fonts.get("small")
-                tiny_font = self._fonts.get("tiny")
-                if not font:
-                    return
+        items = self._get_shop_items()
+        item_h = 76
+        self._shop_scroll.set_content_height(len(items) * item_h + 10)
 
-                items_x = self._shop_scroll.rect.x
-                items_top = self._shop_scroll.rect.top
+        def draw_items(surf, scroll_y):
+            font = self._fonts.get("small")
+            tiny_font = self._fonts.get("tiny")
+            if not font:
+                return
 
-                for i, item in enumerate(items):
-                    item_y = items_top + i * item_h - scroll_y
+            items_x = self._shop_scroll.rect.x
+            items_top = self._shop_scroll.rect.top
+            mouse_pos = pygame.mouse.get_pos()
 
-                    # Пропускаем невидимые
-                    if item_y + item_h < self._shop_scroll.rect.top - 5:
-                        continue
-                    if item_y > self._shop_scroll.rect.bottom + 5:
-                        break
+            for i, item in enumerate(items):
+                item_y = items_top + i * item_h - scroll_y
 
-                    upgrade_id = item["id"]
-                    count = self.save.get_upgrade_count(upgrade_id)
-                    cost = self.economy.get_upgrade_cost(upgrade_id)
-                    can_buy, reason = self.economy.can_buy_upgrade(upgrade_id, self._current_era)
-                    is_visible = self.economy.is_upgrade_visible(upgrade_id, self._current_era)
+                if item_y + item_h < items_top - 5:
+                    continue
+                if item_y > self._shop_scroll.rect.bottom + 5:
+                    break
 
-                    if not is_visible:
-                        continue
+                upgrade_id = item["id"]
+                count = self.save.get_upgrade_count(upgrade_id)
+                cost = self.economy.get_upgrade_cost(upgrade_id)
+                can_buy, reason = self.economy.can_buy_upgrade(
+                    upgrade_id, self._current_era
+                )
+                if not self.economy.is_upgrade_visible(upgrade_id, self._current_era):
+                    continue
 
-                    name = t(f"upgrades.{upgrade_id}")
+                name = t(f"upgrades.{upgrade_id}")
+                item_w = self._shop_scroll.rect.width - 15
+                card = pygame.Rect(items_x, item_y, item_w, item_h - 5)
+                hovered = card.collidepoint(mouse_pos)
 
-                    # Фон предмета
-                    item_w = self._shop_scroll.rect.width - 15
-                    item_rect = pygame.Rect(items_x, item_y, item_w, item_h - 3)
+                # Цвета карточки по состоянию
+                if can_buy:
+                    card_bg = (42, 52, 70)
+                    accent_color = money_color
+                elif reason == "max_reached":
+                    card_bg = (34, 47, 38)
+                    accent_color = (110, 200, 130)
+                else:
+                    card_bg = (33, 35, 47)
+                    accent_color = (68, 72, 92)
 
-                    if can_buy:
-                        bg = (45, 55, 70)
-                    elif reason == "max_reached":
-                        bg = (35, 50, 35)
-                    else:
-                        bg = (35, 35, 48)
+                if hovered and can_buy:
+                    card_bg = style.lighten(card_bg, 0.10)
 
-                    # Hover
-                    mouse_pos = pygame.mouse.get_pos()
-                    if item_rect.collidepoint(mouse_pos) and can_buy:
-                        bg = (55, 70, 90)
+                if can_buy or reason == "max_reached":
+                    border = (
+                        accent_color if hovered
+                        else style.mix(card_bg, accent_color, 0.42)
+                    )
+                else:
+                    border = (52, 56, 74)
 
-                    item_surf = pygame.Surface((item_w, item_h - 3), pygame.SRCALPHA)
-                    pygame.draw.rect(item_surf, (*bg, 200),
-                                     (0, 0, item_w, item_h - 3),
-                                     border_radius=5)
-                    surf.blit(item_surf, item_rect.topleft)
+                style.draw_panel(
+                    surf, card, card_bg, radius=8,
+                    border_color=border, border_width=1, gradient=0.07,
+                    alpha=235,
+                    shadow=hovered and can_buy, shadow_alpha=45
+                )
 
-                    # Название
-                    name_surf = font.render(name, True,
-                                           text_color if can_buy or reason == "max_reached"
-                                           else dim_color)
-                    surf.blit(name_surf, (items_x + 8, item_y + 5))
+                # Акцентная полоска слева
+                style.draw_soft_rect(
+                    surf,
+                    pygame.Rect(card.x + 1, card.y + 9, 3, card.height - 18),
+                    accent_color, 235 if can_buy else 150, radius=2
+                )
 
-                    # Цена / Статус
-                    if reason == "max_reached":
-                        status_surf = tiny_font.render(t("shop.max"), True, (100, 180, 100))
-                        surf.blit(status_surf, (items_x + 8, item_y + 25))
-                    elif reason == "era_locked":
-                        era_req = item.get("era_required", 0)
-                        lock_str = f"🔒 {t('shop.era_locked', era=era_req + 1)}"
-                        lock_surf = tiny_font.render(lock_str, True, dim_color)
-                        surf.blit(lock_surf, (items_x + 8, item_y + 25))
-                    elif reason == "prerequisite":
-                        prereq_name = t(f"upgrades.{item.get('prerequisite', '')}")
-                        req_str = f"🔒 {prereq_name}"
-                        req_surf = tiny_font.render(req_str, True, dim_color)
-                        surf.blit(req_surf, (items_x + 8, item_y + 25))
-                    else:
-                        cost_str = format_money(cost, self._num_format)
-                        cost_c = money_color if can_buy else danger_color
-                        cost_surf = tiny_font.render(cost_str, True, cost_c)
-                        surf.blit(cost_surf, (items_x + 8, item_y + 25))
+                text_left = card.x + 12
+                text_right_limit = card.right - 44
 
-                    # Эффект
-                    if tiny_font:
-                        effect_type = item.get("effect_type", "")
-                        effect_value = item.get("effect_value", 0)
-                        if effect_type in ("click_multiplier", "passive_multiplier",
-                                          "all_multiplier", "discount",
-                                          "crit_chance"):
-                            effect_str = t(f"effects.{effect_type}",
-                                          value=f"{effect_value * 100:.0f}")
-                        elif effect_type == "crit_multiplier":
-                            effect_str = t(f"effects.{effect_type}",
-                                          value=f"{effect_value:.0f}")
-                        else:
-                            effect_str = t(f"effects.{effect_type}",
-                                          value=format_number(effect_value, self._num_format))
-                        eff_surf = tiny_font.render(effect_str, True, (130, 160, 200))
-                        surf.blit(eff_surf, (items_x + 8, item_y + 42))
+                # Название
+                name_color = (
+                    text_color if (can_buy or reason == "max_reached")
+                    else dim_color
+                )
+                name_surf = font.render(
+                    fit_text(name, font, text_right_limit - text_left),
+                    True, name_color
+                )
+                surf.blit(name_surf, (text_left, card.y + 6))
 
-                    # Количество (для многоразовых)
-                    if item.get("max_count", 1) != 1 and count > 0:
-                        count_str = f"x{count}"
-                        count_surf = font.render(count_str, True, (180, 200, 230))
-                        count_rect = count_surf.get_rect(
-                            right=items_x + item_w - 10,
-                            centery=item_y + item_h // 2 - 2
-                        )
-                        surf.blit(count_surf, count_rect)
-                    elif item.get("max_count", 1) == 1 and count > 0:
-                        check_surf = font.render("✓", True, (100, 200, 100))
-                        check_rect = check_surf.get_rect(
-                            right=items_x + item_w - 10,
-                            centery=item_y + item_h // 2 - 2
-                        )
-                        surf.blit(check_surf, check_rect)
+                # Цена / статус
+                if reason == "max_reached":
+                    status = t("shop.max")
+                    status_surf = tiny_font.render(status, True, (140, 220, 160))
+                    surf.blit(status_surf, (text_left, card.y + 27))
+                elif reason == "era_locked":
+                    era_req = item.get("era_required", 0)
+                    lock_str = f"🔒 {t('shop.era_locked', era=era_req + 1)}"
+                    lock_surf = tiny_font.render(
+                        fit_text(lock_str, tiny_font, text_right_limit - text_left),
+                        True, dim_color
+                    )
+                    surf.blit(lock_surf, (text_left, card.y + 27))
+                elif reason == "prerequisite":
+                    prereq_name = t(f"upgrades.{item.get('prerequisite', '')}")
+                    req_str = f"🔒 {prereq_name}"
+                    req_surf = tiny_font.render(
+                        fit_text(req_str, tiny_font, text_right_limit - text_left),
+                        True, dim_color
+                    )
+                    surf.blit(req_surf, (text_left, card.y + 27))
+                else:
+                    cost_str = format_money(cost, self._num_format)
+                    cost_color = money_color if can_buy else danger_color
+                    cost_surf = tiny_font.render(cost_str, True, cost_color)
+                    pill = pygame.Rect(
+                        0, 0,
+                        cost_surf.get_width() + 16,
+                        cost_surf.get_height() + 6
+                    )
+                    pill.topleft = (text_left - 2, card.y + 25)
+                    style.draw_soft_rect(
+                        surf, pill, cost_color,
+                        34 if can_buy else 26, radius=pill.height // 2
+                    )
+                    surf.blit(cost_surf, cost_surf.get_rect(center=pill.center))
 
-            self._shop_scroll.draw(surface, theme, draw_items)
+                # Эффект
+                effect_type = item.get("effect_type", "")
+                effect_value = item.get("effect_value", 0)
+                if effect_type in ("click_multiplier", "passive_multiplier",
+                                   "all_multiplier", "discount", "crit_chance"):
+                    effect_str = t(
+                        f"effects.{effect_type}", value=f"{effect_value * 100:.0f}"
+                    )
+                elif effect_type == "crit_multiplier":
+                    effect_str = t(
+                        f"effects.{effect_type}", value=f"{effect_value:.0f}"
+                    )
+                else:
+                    effect_str = t(
+                        f"effects.{effect_type}",
+                        value=format_number(effect_value, self._num_format)
+                    )
+
+                effect_surf = tiny_font.render(
+                    fit_text(effect_str, tiny_font, card.width - 24),
+                    True, (128, 156, 196)
+                )
+                surf.blit(effect_surf, (text_left, card.y + 48))
+
+                # Счётчик / галочка справа
+                max_count = item.get("max_count", 1)
+                if max_count != 1 and count > 0:
+                    count_str = f"x{count}"
+                    count_surf = tiny_font.render(
+                        count_str, True, (200, 216, 240)
+                    )
+                    rect = count_surf.get_rect(
+                        right=card.right - 10, top=card.y + 10
+                    )
+                    surf.blit(count_surf, rect)
+                elif max_count == 1 and count > 0:
+                    style.draw_check(
+                        surf, (card.right - 17, card.y + 19),
+                        size=11, color=(120, 220, 150)
+                    )
+
+        self._shop_scroll.draw(surface, theme, draw_items)
 
     def _draw_bottom_panel(self, surface, theme, offset):
         """Рисует нижнюю панель."""
         panel_color = theme.get("panel_color", (40, 40, 55))
         border_color = theme.get("panel_border", (60, 60, 80))
 
-        bot_y = self.sh - BOTTOM_PANEL_HEIGHT + offset[1]
+        bot_rect = pygame.Rect(
+            offset[0], self.sh - BOTTOM_PANEL_HEIGHT + offset[1],
+            self.sw, BOTTOM_PANEL_HEIGHT
+        )
+        style.draw_panel(
+            surface, bot_rect, panel_color, radius=0, gradient=0.16
+        )
 
-        # Фон
-        panel_surf = pygame.Surface((self.sw, BOTTOM_PANEL_HEIGHT), pygame.SRCALPHA)
-        pygame.draw.rect(panel_surf, (*panel_color, 230),
-                         (0, 0, self.sw, BOTTOM_PANEL_HEIGHT))
-        surface.blit(panel_surf, (offset[0], bot_y))
-
-        # Разделитель
-        pygame.draw.line(surface, border_color,
-                         (offset[0], bot_y),
-                         (self.sw + offset[0], bot_y))
+        # Тень вверх и линия-разделитель
+        shadow = pygame.Surface((self.sw, 10), pygame.SRCALPHA)
+        for i in range(10):
+            alpha = int(46 * (1 - i / 10))
+            pygame.draw.line(shadow, (0, 0, 0, alpha), (0, i), (self.sw, i))
+        surface.blit(shadow, (offset[0], bot_rect.top - 10))
+        pygame.draw.line(
+            surface, border_color,
+            (offset[0], bot_rect.top), (self.sw + offset[0], bot_rect.top)
+        )
 
         # Кнопки
         for btn in self._bottom_buttons.values():

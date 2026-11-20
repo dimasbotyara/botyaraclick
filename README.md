@@ -24,6 +24,8 @@ Start as a freelancer in a garage, click your way to building an IT empire, and 
 - ✨ **Particle effects** — sparks, coins, confetti, stars
 - 💥 **Click animations** — spring bounce, screen shake, floating numbers
 - 🎨 **13 hand-crafted themes** — Cyberpunk, Cozy Forest, Retro 8-bit, Royal Gold, Deep Space, Deep Ocean, Infernal, Halloween, Winter Wonderland, and more
+- 🔤 **Offline fonts + emoji** — every theme font (plus Noto Emoji) ships in `assets/fonts`; Cyrillic and emoji fall back automatically, no more ▯ boxes
+- 🔔 **Calm toasts** — short notifications in the bottom corner, 1 click to dismiss, hover to pause the timer
 - 🌧️ **Animated background effects** per theme — matrix rain, falling leaves, snowflakes, embers, bubbles, bats, stars, scanlines
 - 🏆 **50 achievements** with small bonuses (including **6 secret ones**)
 
@@ -155,6 +157,7 @@ botyaraclick/
 │   └── prestige_screen.py      # Prestige
 │
 ├── ui/                         # Reusable UI components
+│   ├── fonts.py                # Offline fonts + Cyrillic/emoji fallback
 │   ├── button.py               # Buttons
 │   ├── panel.py                # Panels & overlays
 │   ├── scrollbar.py            # Scroll areas
@@ -180,6 +183,9 @@ botyaraclick/
 │   ├── sounds/                 # WAV SFX (CC0 / CC BY)
 │   └── music/                  # OGG music (CC0 / CC BY)
 │
+├── tests/                      # Headless smoke tests (unittest)
+│   └── test_smoke.py
+│
 ├── saves/                      # Auto-created, gitignored
 ├── FONTS_GUIDE.md              # How to add custom fonts
 ├── SOUNDS_GUIDE.md             # How to add custom sounds
@@ -195,11 +201,27 @@ botyaraclick/
 | **Language** | Python 3.8+ |
 | **Engine** | Pygame 2.0+ |
 | **Persistence** | JSON (5 slots + global config) |
-| **i18n** | Built-in locale manager (EN / RU + template) |
+| **i18n** | Built-in locale manager (EN / RU + template), placeholder-safe fallback |
+| **Fonts** | Bundled TTF (OFL) + automatic Cyrillic/emoji fallback |
 | **UI** | Hand-rolled widgets (buttons, sliders, popups, tooltips) |
 | **Effects** | Custom particle & animation systems |
 
 Zero external Python dependencies beyond `pygame`. Everything else is written from scratch.
+
+---
+
+## 🧪 Tests
+
+Headless smoke tests (no window, no audio needed):
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+They cover the localization fallback (no more raw `[section.key]` placeholders
+after visiting Settings), bundled fonts & emoji fallback, notification
+placement/dismissal, the pause-menu layout at small resolutions, and the fact
+that the click button never pulses while idle.
 
 ---
 

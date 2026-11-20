@@ -11,6 +11,8 @@ import time
 from ui.button import Button
 from ui.panel import Panel
 from locales.locale_manager import t
+from ui.fonts import get_font
+from ui import style
 
 
 class MainMenuScreen:
@@ -96,15 +98,15 @@ class MainMenuScreen:
             self._small_font = fonts_dict.get("small")
         
         if not self._title_font:
-            self._title_font = pygame.font.Font(None, 72)
+            self._title_font = get_font(72, bold=True)
         if not self._subtitle_font:
-            self._subtitle_font = pygame.font.Font(None, 24)
+            self._subtitle_font = get_font(24)
         if not self._button_font:
-            self._button_font = pygame.font.Font(None, 30)
+            self._button_font = get_font(30)
         if not self._small_font:
-            self._small_font = pygame.font.Font(None, 18)
+            self._small_font = get_font(18)
 
-        self._code_font = pygame.font.Font(None, 14)
+        self._code_font = get_font(14, family="FiraCode")
 
     def _init_buttons(self):
         """Создаёт кнопки меню."""
@@ -127,6 +129,7 @@ class MainMenuScreen:
         if has_saves:
             buttons_list.append({
                 "id": "continue",
+                "icon": "▶",
                 "text": t("menu.continue"),
                 "color": (50, 140, 80),
                 "hover_color": (60, 170, 95),
@@ -134,6 +137,7 @@ class MainMenuScreen:
 
         buttons_list.append({
             "id": "play",
+            "icon": "🎮",
             "text": t("menu.play"),
             "color": (50, 100, 200),
             "hover_color": (70, 130, 240),
@@ -141,6 +145,7 @@ class MainMenuScreen:
 
         buttons_list.append({
             "id": "settings",
+            "icon": "⚙",
             "text": t("menu.settings"),
             "color": (70, 70, 90),
             "hover_color": (90, 90, 115),
@@ -148,6 +153,7 @@ class MainMenuScreen:
 
         buttons_list.append({
             "id": "quit",
+            "icon": "🚪",
             "text": t("menu.quit"),
             "color": (140, 50, 50),
             "hover_color": (170, 65, 65),
@@ -155,6 +161,7 @@ class MainMenuScreen:
 
         total_h = len(buttons_list) * (btn_h + gap) - gap
         start_y = self.screen_height // 2 + 30 - total_h // 2 + 50
+        self._buttons_top = start_y
 
         for i, bdef in enumerate(buttons_list):
             btn = Button(
@@ -162,11 +169,12 @@ class MainMenuScreen:
                 start_y + i * (btn_h + gap),
                 btn_w, btn_h,
                 text=bdef["text"],
+                icon=bdef.get("icon", ""),
                 font=self._button_font,
                 color=bdef["color"],
                 hover_color=bdef["hover_color"],
-                text_color=(230, 230, 240),
-                border_radius=10,
+                text_color=(236, 240, 250),
+                border_radius=12,
                 tag=bdef["id"],
             )
             self._buttons[bdef["id"]] = btn
@@ -234,12 +242,12 @@ class MainMenuScreen:
         # Подзаголовок
         if self._subtitle_font:
             sub_text = self._subtitle_font.render(
-                "From Garage to Galaxy", True, (120, 140, 180)
+                t("menu.subtitle"), True, (124, 146, 190)
             )
             sub_text.set_alpha(int(self._alpha * 0.8))
+            top = getattr(self, "_buttons_top", self.screen_height // 2 + 120)
             sub_rect = sub_text.get_rect(
-                center=(self.screen_width // 2,
-                        self.screen_height // 2 - 40)
+                center=(self.screen_width // 2, top - 26)
             )
             surface.blit(sub_text, sub_rect)
 
@@ -298,33 +306,33 @@ class MainMenuScreen:
         if not self._title_font:
             return
 
-        # Пульсация масштаба
         pulse = 1.0 + math.sin(self._title_phase) * 0.02
-        title_y = self.screen_height // 2 - 100
+        top = getattr(self, "_buttons_top", self.screen_height // 2 + 120)
+        title_y = top - 96
+        cx = self.screen_width // 2
 
-        # Свечение за заголовком
-        glow_alpha = int(40 * alpha_ratio * ((math.sin(self._title_phase * 0.7) + 1) / 2))
-        if glow_alpha > 0:
-            glow_surf = pygame.Surface(
-                (400, 60), pygame.SRCALPHA
-            )
-            pygame.draw.ellipse(
-                glow_surf,
-                (50, 100, 255, glow_alpha),
-                (0, 0, 400, 60)
-            )
-            glow_rect = glow_surf.get_rect(
-                center=(self.screen_width // 2, title_y)
-            )
-            surface.blit(glow_surf, glow_rect)
+        # Мягкое свечение-эллипс за заголовком
+        glow_w, glow_h = 600, 170
+        brightness = 0.5 + 0.5 * math.sin(self._title_phase * 0.7)
+        glow = style.ellipse_glow(
+            (glow_w, glow_h), (46, 104, 255),
+            alpha=int(120 * alpha_ratio * (0.75 + 0.25 * brightness))
+        )
+        glow.set_alpha(int(255 * alpha_ratio))
+        surface.blit(glow, (cx - glow_w // 2, title_y - glow_h // 2))
 
-        # Заголовок
+        # Тень
+        shadow_surf = self._title_font.render("botyaraclick", True, (0, 0, 0))
+        shadow_surf.set_alpha(int(150 * alpha_ratio))
+        shadow_rect = shadow_surf.get_rect(center=(cx, title_y + 4))
+        surface.blit(shadow_surf, shadow_rect)
+
+        # Сам заголовок
         title_surf = self._title_font.render(
-            "botyaraclick", True, (80, 160, 255)
+            "botyaraclick", True, (108, 178, 255)
         )
         title_surf.set_alpha(int(self._alpha))
 
-        # Масштабирование
         if pulse != 1.0:
             new_w = int(title_surf.get_width() * pulse)
             new_h = int(title_surf.get_height() * pulse)
@@ -332,10 +340,19 @@ class MainMenuScreen:
                 title_surf, (new_w, new_h)
             )
 
-        title_rect = title_surf.get_rect(
-            center=(self.screen_width // 2, title_y)
-        )
+        title_rect = title_surf.get_rect(center=(cx, title_y))
         surface.blit(title_surf, title_rect)
+
+        # Тонкая линия-подчёркивание с растворяющимися краями
+        line_w = 320
+        line = pygame.Surface((line_w, 2), pygame.SRCALPHA)
+        for x in range(line_w):
+            edge = min(x, line_w - x) / (line_w / 2)
+            alpha = int(120 * alpha_ratio * edge)
+            pygame.draw.line(line, (90, 160, 255, alpha), (x, 0), (x, 2))
+        surface.blit(
+            line, (cx - line_w // 2, title_rect.bottom + 8)
+        )
 
     def reset(self):
         """Сбрасывает состояние меню для повторного показа."""

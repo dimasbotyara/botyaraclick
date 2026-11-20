@@ -10,6 +10,7 @@ import pygame
 import math
 
 from ui.button import Button
+from ui import style
 from ui.panel import Panel
 from ui.scrollbar import ScrollArea
 from ui.tooltip import TooltipManager
@@ -21,6 +22,7 @@ from data.upgrades import (
 )
 from data.eras import ERAS
 from locales.locale_manager import t
+from ui.fonts import get_font
 
 
 class UpgradeTreeScreen:
@@ -56,8 +58,8 @@ class UpgradeTreeScreen:
 
         # Размеры ноды
         self.NODE_W = 200
-        self.NODE_H = 75
-        self.NODE_GAP_X = 40
+        self.NODE_H = 82
+        self.NODE_GAP_X = 14
         self.NODE_GAP_Y = 20
         self.BRANCH_GAP = 30
 
@@ -70,11 +72,11 @@ class UpgradeTreeScreen:
             self._fonts = fonts_dict
         else:
             self._fonts = {
-                "title": pygame.font.Font(None, 36),
-                "button": pygame.font.Font(None, 22),
-                "normal": pygame.font.Font(None, 18),
-                "small": pygame.font.Font(None, 15),
-                "tiny": pygame.font.Font(None, 13),
+                "title": get_font(36, bold=True),
+                "button": get_font(22),
+                "normal": get_font(18),
+                "small": get_font(15),
+                "tiny": get_font(13),
             }
         self._tooltip.font = self._fonts.get("small")
 
@@ -85,6 +87,8 @@ class UpgradeTreeScreen:
 
         if not self._fonts:
             self.init_fonts()
+
+        self._recalc_node_size()
 
         # === Кнопки категорий (вверху) ===
         self._cat_buttons.clear()
@@ -101,7 +105,9 @@ class UpgradeTreeScreen:
                 start_x + i * (cat_btn_w + 5),
                 60,
                 cat_btn_w, cat_btn_h,
-                text=cat_name,
+                text=style.fit_text(
+                    cat_name, self._fonts.get("button"), cat_btn_w - 18
+                ),
                 font=self._fonts.get("button"),
                 color=(60, 100, 170) if is_selected else (50, 50, 70),
                 hover_color=(75, 115, 185),
@@ -134,6 +140,48 @@ class UpgradeTreeScreen:
         )
 
         self._initialized = True
+
+    @staticmethod
+    def _wrap_text(text, font, max_width, max_lines=2):
+        """Разбивает текст на строки по ширине (с многоточием)."""
+        if not font or not text:
+            return [text or ""]
+
+        words = text.split()
+        lines = []
+        current = ""
+        for word in words:
+            candidate = f"{current} {word}".strip()
+            if not current or font.size(candidate)[0] <= max_width:
+                current = candidate
+            else:
+                lines.append(current)
+                current = word
+            if len(lines) >= max_lines:
+                break
+        if current and len(lines) < max_lines:
+            lines.append(current)
+        if not lines:
+            return [text]
+
+        joined = " ".join(lines)
+        if joined != text.strip():
+            lines = lines[:max_lines]
+        return [style.fit_text(line, font, max_width) for line in lines]
+
+    def _recalc_node_size(self):
+        """Подбирает ширину карточки, чтобы все ноды влезали в ряд."""
+        cat_data = CATEGORIES.get(self._selected_category, {})
+        max_nodes = 1
+        for branch_id in cat_data.get("branches", []):
+            count = len(
+                get_upgrades_by_branch(self._selected_category, branch_id)
+            )
+            max_nodes = max(max_nodes, count)
+
+        avail = max(300, self.sw - 60)
+        width = (avail - (max_nodes - 1) * self.NODE_GAP_X) // max_nodes
+        self.NODE_W = max(104, min(200, width))
 
     def _calc_content_height(self):
         """Рассчитывает высоту содержимого для текущей категории."""
@@ -174,6 +222,7 @@ class UpgradeTreeScreen:
                 for cb in self._cat_buttons:
                     cb._color = (60, 100, 170) if cb.tag == self._selected_category else (50, 50, 70)
                 # Пересчитываем скролл
+                self._recalc_node_size()
                 if self._scroll:
                     self._scroll.set_content_height(self._calc_content_height())
                     self._scroll.scroll_to_top()
@@ -480,30 +529,42 @@ class UpgradeTreeScreen:
 
                         # Hover
                         mouse_pos = pygame.mouse.get_pos()
-                        node_rect = pygame.Rect(node_x, node_y, self.NODE_W, self.NODE_H)
-                        if node_rect.collidepoint(mouse_pos):
-                            node_bg = tuple(min(c + 15, 255) for c in node_bg)
+                        node_rect = pygame.Rect(
+                            node_x, node_y, self.NODE_W, self.NODE_H
+                        )
+                        hovered = node_rect.collidepoint(mouse_pos)
+                        if hovered:
+                            node_bg = style.lighten(node_bg, 0.12)
 
-                        # Рисуем ноду
-                        node_surf = pygame.Surface((self.NODE_W, self.NODE_H), pygame.SRCALPHA)
-                        pygame.draw.rect(node_surf, (*node_bg, 220),
-                                        (0, 0, self.NODE_W, self.NODE_H),
-                                        border_radius=8)
-                        pygame.draw.rect(node_surf, (*node_border, 200),
-                                        (0, 0, self.NODE_W, self.NODE_H),
-                                        width=2, border_radius=8)
-                        surf.blit(node_surf, (node_x, node_y))
+                        # Карточка ноды
+                        style.draw_panel(
+                            surf, node_rect, node_bg, radius=9,
+                            border_color=node_border, border_width=1,
+                            alpha=235, gradient=0.16,
+                            shadow=hovered, shadow_alpha=55
+                        )
+                        style.draw_soft_rect(
+                            surf,
+                            pygame.Rect(node_rect.x + 1, node_rect.y + 7,
+                                        3, self.NODE_H - 14),
+                            node_border, 210, radius=2
+                        )
 
-                        # Название
+                        text_x = node_x + 11
+                        max_text_w = self.NODE_W - 22
+
+                        # Название: до двух строк
                         name = t(f"upgrades.{upgrade_id}")
+                        reserve = 26 if (max_c != 1 and count > 0) else 0
                         if font_small:
-                            # Обрезаем если не влезает
-                            if font_small.size(name)[0] > self.NODE_W - 16:
-                                while font_small.size(name + "..")[0] > self.NODE_W - 16 and len(name) > 3:
-                                    name = name[:-1]
-                                name += ".."
-                            name_surf = font_small.render(name, True, node_text_c)
-                            surf.blit(name_surf, (node_x + 8, node_y + 6))
+                            lines = self._wrap_text(
+                                name, font_small, max_text_w - reserve, 2
+                            )
+                            for li, line in enumerate(lines):
+                                line_surf = font_small.render(
+                                    line, True, node_text_c
+                                )
+                                surf.blit(line_surf, (text_x, node_y + 6 + li * 17))
 
                         # Эффект
                         if font_tiny:
@@ -519,34 +580,46 @@ class UpgradeTreeScreen:
                             else:
                                 eff_str = f"+{format_number(effect_value, self._num_format)}/click"
 
-                            eff_surf = font_tiny.render(eff_str, True, (130, 160, 200))
-                            surf.blit(eff_surf, (node_x + 8, node_y + 24))
+                            eff_surf = font_tiny.render(eff_str, True, (138, 168, 208))
+                            surf.blit(eff_surf, (text_x, node_y + 42))
 
                         # Цена / статус
                         if font_tiny:
                             if is_bought:
-                                status_str = "✓ " + t("shop.max") if max_c == 1 else f"✓ x{count}"
-                                status_surf = font_tiny.render(status_str, True, (120, 220, 140))
+                                status_str = t("shop.max") if max_c == 1 else f"x{count}"
+                                style.draw_check(
+                                    surf, (text_x + 6, node_y + 67),
+                                    size=10, color=(130, 225, 150)
+                                )
+                                status_surf = font_tiny.render(
+                                    status_str, True, (130, 225, 150)
+                                )
                             elif not is_visible:
                                 status_str = "🔒"
                                 status_surf = font_tiny.render(status_str, True, dim_color)
                             else:
                                 cost_str = format_money(cost, self._num_format)
-                                cost_c = money_color if is_available else (200, 100, 100)
+                                cost_c = money_color if is_available else (230, 120, 120)
                                 status_surf = font_tiny.render(cost_str, True, cost_c)
 
-                            surf.blit(status_surf, (node_x + 8, node_y + 42))
+                            blit_x = text_x + 16 if is_bought else text_x
+                            surf.blit(status_surf, (blit_x, node_y + 60))
 
                         # Количество (для многоразовых)
-                        if max_c != 1 and count > 0 and not is_bought:
-                            if font_tiny:
-                                cnt_str = f"x{count}"
-                                cnt_surf = font_tiny.render(cnt_str, True, (180, 200, 230))
-                                cnt_rect = cnt_surf.get_rect(
-                                    right=node_x + self.NODE_W - 8,
-                                    top=node_y + 6
-                                )
-                                surf.blit(cnt_surf, cnt_rect)
+                        if max_c != 1 and count > 0 and not is_bought and font_tiny:
+                            cnt_str = f"x{count}"
+                            cnt_surf = font_tiny.render(cnt_str, True, (190, 208, 236))
+                            cnt_rect = cnt_surf.get_rect(
+                                right=node_x + self.NODE_W - 9,
+                                top=node_y + 7
+                            )
+                            style.draw_soft_rect(
+                                surf,
+                                pygame.Rect(cnt_rect.x - 5, cnt_rect.y - 2,
+                                            cnt_rect.w + 10, cnt_rect.h + 4),
+                                (255, 255, 255), 22, radius=6
+                            )
+                            surf.blit(cnt_surf, cnt_rect)
 
                         prev_node_right = node_x + self.NODE_W
 

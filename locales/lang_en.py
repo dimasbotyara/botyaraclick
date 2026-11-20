@@ -11,6 +11,7 @@ STRINGS = {
     # === ГЛАВНОЕ МЕНЮ ===
     "menu": {
         "title": "botyaraclick",
+        "subtitle": "From Garage to Galaxy",
         "play": "Play",
         "continue": "Continue",
         "settings": "Settings",
@@ -31,8 +32,8 @@ STRINGS = {
     # === ИГРОВОЙ ЭКРАН ===
     "game": {
         "click": "CLICK!",
-        "per_click": "$/click",
-        "per_second": "$/sec",
+        "per_click": "click",
+        "per_second": "sec",
         "balance": "Balance",
         "total_earned": "Total earned",
         "era": "Era",
@@ -569,6 +570,16 @@ STRINGS = {
         "prestige_event_luck": "Entrepreneur Luck",
         "prestige_golden_time": "Quick Reaction",
         "prestige_double_achievement": "Achievement Synergy",
+        "totals": "Total earned: {earned}  |  Prestiges: {count}  |  Total RP: {rp}",
+        "eff_percent": "+{value}% per level",
+        "eff_percent_neg": "−{value}% per level",
+        "eff_mult": "+{value}x per level",
+        "eff_per_sec": "+{value}/sec per level",
+        "eff_money": "+${value} per level",
+        "eff_seconds": "+{value}s per level",
+        "eff_plain": "+{value} per level",
+        "max_level": "MAX (Lv. {count})",
+        "cost_line": "Cost: {cost} RP  |  Lv. {count}",
     },
 
     # Описания престиж-улучшений
@@ -630,6 +641,17 @@ STRINGS = {
         "infernal": "Infernal",
         "halloween": "Halloween",
         "winter": "Winter Wonderland",
+        "font_label": "Font",
+        "effect_label": "Effect",
+        "effect_none": "no effect",
+        "effect_matrix_rain": "digital rain",
+        "effect_falling_leaves": "falling leaves",
+        "effect_scanlines": "scanlines",
+        "effect_gold_sparkle": "gold sparkle",
+        "effect_stars": "stars",
+        "effect_bubbles": "bubbles",
+        "effect_embers": "embers",
+        "effect_bats": "bats",
     },
 
     # === ДЕРЕВО УЛУЧШЕНИЙ ===
@@ -653,6 +675,7 @@ STRINGS = {
         "loading": "Loading...",
         "saving": "Saving...",
         "crit": "CRIT!",
+        "hint_close": "Click or ESC to close",
     },
 
     # === ВЫХОД ===
