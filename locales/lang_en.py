@@ -676,6 +676,8 @@ STRINGS = {
         "saving": "Saving...",
         "crit": "CRIT!",
         "hint_close": "Click or ESC to close",
+        "hint_scroll": "Wheel/drag to scroll",
+        "hint_close_short": "ESC to close",
     },
 
     # === ВЫХОД ===
