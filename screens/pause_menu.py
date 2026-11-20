@@ -18,6 +18,7 @@ from ui.panel import Panel, DarkOverlay
 from ui.popup import PopupManager
 from locales.locale_manager import t
 from economy import format_money, format_number, format_time, format_percent
+from ui.fonts import get_font
 
 
 class PauseMenuScreen:
@@ -47,15 +48,19 @@ class PauseMenuScreen:
         self._title_font = None
         self._button_font = None
         self._info_font = None
+        self._small_font = None
 
         # Анимация
         self._panel_alpha = 0
         self._target_panel_alpha = 255
-        self._panel_scale = 0.8
-        self._target_panel_scale = 1.0
+
+        # Раскладка панели (пересчитывается в _init_ui)
+        self._panel_rect = pygame.Rect(0, 0, 0, 0)
+        self._title_pos = (0, 0)
 
         # Субэкран: статистика / достижения
         self._sub_screen = None  # "statistics", "achievements"
+        self._sub_scroll = 0
 
         self._initialized = False
 
@@ -65,13 +70,16 @@ class PauseMenuScreen:
             self._title_font = fonts_dict.get("title")
             self._button_font = fonts_dict.get("button")
             self._info_font = fonts_dict.get("normal")
+            self._small_font = fonts_dict.get("small")
 
         if not self._title_font:
-            self._title_font = pygame.font.Font(None, 42)
+            self._title_font = get_font(42, bold=True)
         if not self._button_font:
-            self._button_font = pygame.font.Font(None, 26)
+            self._button_font = get_font(26)
         if not self._info_font:
-            self._info_font = pygame.font.Font(None, 20)
+            self._info_font = get_font(20)
+        if not getattr(self, "_small_font", None):
+            self._small_font = get_font(16)
 
     def _init_ui(self):
         """Создаёт UI."""
@@ -84,10 +92,6 @@ class PauseMenuScreen:
         self._overlay.show()
 
         cx = self.sw // 2
-        panel_w = 350
-        btn_w = 280
-        btn_h = 48
-        gap = 10
 
         buttons_def = [
             ("resume", t("pause.resume"), (50, 140, 80), (60, 170, 95)),
@@ -98,14 +102,43 @@ class PauseMenuScreen:
             ("main_menu", t("pause.main_menu"), (140, 60, 50), (170, 75, 60)),
         ]
 
-        total_h = len(buttons_def) * (btn_h + gap) - gap
-        start_y = self.sh // 2 - total_h // 2 + 30
+        # --- Раскладка: панель всегда вмещает ВСЕ кнопки ---
+        btn_w = max(200, min(300, self.sw - 80))
+        btn_h = 46
+        gap = 10
+        title_h = 66
+        padding = 22
+
+        def panel_height(bh, gp, th, pad):
+            return th + len(buttons_def) * bh + (len(buttons_def) - 1) * gp + pad
+
+        # Подгоняем под высоту окна (маленькие окна / низкое разрешение)
+        available = self.sh - 40
+        while panel_height(btn_h, gap, title_h, padding) > available and btn_h > 26:
+            btn_h -= 2
+            gap = max(5, gap - 1)
+        if panel_height(btn_h, gap, title_h, padding) > available:
+            title_h = max(40, title_h - 12)
+            padding = max(10, padding - 6)
+        if panel_height(btn_h, gap, title_h, padding) > available:
+            # Совсем маленькое окно — ещё сильнее ужимаем кнопки
+            btn_h = max(20, (available - title_h - padding) // len(buttons_def) - gap)
+
+        panel_w = btn_w + padding * 2
+        panel_h = panel_height(btn_h, gap, title_h, padding)
+        panel_x = cx - panel_w // 2
+        panel_y = max(8, (self.sh - panel_h) // 2)
+
+        self._panel_rect = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
+        self._title_pos = (cx, panel_y + title_h // 2 + 4)
+
+        first_y = panel_y + title_h
 
         self._buttons.clear()
         for i, (bid, btext, bcol, bhov) in enumerate(buttons_def):
             btn = Button(
                 cx - btn_w // 2,
-                start_y + i * (btn_h + gap),
+                first_y + i * (btn_h + gap),
                 btn_w, btn_h,
                 text=btext,
                 font=self._button_font,
@@ -133,8 +166,12 @@ class PauseMenuScreen:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self._sub_screen = None
                 return True
+            if event.type == pygame.MOUSEWHEEL:
+                self._sub_scroll = max(0, self._sub_scroll - event.y * 34)
+                return True
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self._sub_screen = None
+                self._sub_scroll = 0
                 return True
             return True
 
@@ -171,9 +208,11 @@ class PauseMenuScreen:
 
         elif btn_id == "achievements":
             self._sub_screen = "achievements"
+            self._sub_scroll = 0
 
         elif btn_id == "statistics":
             self._sub_screen = "statistics"
+            self._sub_scroll = 0
 
         elif btn_id == "settings":
             self.result = "settings"
@@ -207,7 +246,6 @@ class PauseMenuScreen:
         """Начинает анимацию закрытия."""
         self._overlay.hide()
         self._target_panel_alpha = 0
-        self._target_panel_scale = 0.8
 
     def update(self, dt):
         """Обновляет экран."""
@@ -220,9 +258,6 @@ class PauseMenuScreen:
         speed = 8.0 * dt
         diff_a = self._target_panel_alpha - self._panel_alpha
         self._panel_alpha += diff_a * min(speed, 1.0)
-
-        diff_s = self._target_panel_scale - self._panel_scale
-        self._panel_scale += diff_s * min(speed, 1.0)
 
         # Закрытие
         if self.result and self._panel_alpha < 10 and not self._overlay.is_visible:
@@ -257,37 +292,34 @@ class PauseMenuScreen:
         if alpha <= 0:
             return
 
-        # Панель
-        panel_w = 350
-        panel_h = 420
-        scaled_w = int(panel_w * self._panel_scale)
-        scaled_h = int(panel_h * self._panel_scale)
-        px = self.sw // 2 - scaled_w // 2
-        py = self.sh // 2 - scaled_h // 2 - 20
+        rect = self._panel_rect
+        if rect.width <= 0:
+            return
 
-        panel_surf = pygame.Surface((scaled_w, scaled_h), pygame.SRCALPHA)
+        # Рисуем панель вместе с кнопками на отдельном слое — так всё
+        # меню плавно появляется и исчезает целиком, и ничего не «вылезает».
+        layer = pygame.Surface((self.sw, self.sh), pygame.SRCALPHA)
+
         bg_color = (35, 35, 50) if not theme else theme.get("panel_color", (35, 35, 50))
         border_color = (60, 60, 80) if not theme else theme.get("panel_border", (60, 60, 80))
-        pygame.draw.rect(panel_surf, (*bg_color, alpha),
-                         (0, 0, scaled_w, scaled_h), border_radius=15)
-        pygame.draw.rect(panel_surf, (*border_color, alpha),
-                         (0, 0, scaled_w, scaled_h), width=2, border_radius=15)
-        surface.blit(panel_surf, (px, py))
+
+        pygame.draw.rect(layer, (*bg_color, 252), rect, border_radius=16)
+        pygame.draw.rect(layer, (*border_color, 255), rect, width=2, border_radius=16)
 
         # Заголовок
         if self._title_font:
             title_surf = self._title_font.render(
                 t("pause.title"), True, (220, 220, 240)
             )
-            title_surf.set_alpha(alpha)
-            title_rect = title_surf.get_rect(
-                center=(self.sw // 2, py + 35)
-            )
-            surface.blit(title_surf, title_rect)
+            title_rect = title_surf.get_rect(center=self._title_pos)
+            layer.blit(title_surf, title_rect)
 
         # Кнопки
         for btn in self._buttons.values():
-            btn.draw(surface, theme)
+            btn.draw(layer, theme)
+
+        layer.set_alpha(alpha)
+        surface.blit(layer, (0, 0))
 
     def _draw_statistics(self, surface, theme):
         """Рисует экран статистики."""
@@ -300,9 +332,9 @@ class PauseMenuScreen:
             dim_color = theme.get("text_dim", dim_color)
             money_color = theme.get("money_color", money_color)
 
-        # Фон панели
-        panel_w = 500
-        panel_h = 500
+        # Фон панели (не больше окна)
+        panel_w = min(520, self.sw - 40)
+        panel_h = min(500, self.sh - 60)
         px = self.sw // 2 - panel_w // 2
         py = self.sh // 2 - panel_h // 2
 
@@ -355,6 +387,7 @@ class PauseMenuScreen:
              str(self.save.get_save_data("debuffs_survived", 0))),
         ]
 
+        row_h = max(20, min(28, (panel_h - 90) // max(1, len(stats))))
         cy = py + 60
         for label, value in stats:
             label_surf = self._info_font.render(label + ":", True, dim_color)
@@ -364,11 +397,11 @@ class PauseMenuScreen:
             value_rect = value_surf.get_rect(right=px + panel_w - 25, top=cy)
             surface.blit(value_surf, value_rect)
 
-            cy += 28
+            cy += row_h
 
         # Подсказка
         hint_surf = self._info_font.render(
-            "Click anywhere or press ESC to close", True, (100, 100, 120)
+            t("common.hint_close"), True, (100, 100, 120)
         )
         hint_rect = hint_surf.get_rect(center=(self.sw // 2, py + panel_h - 20))
         surface.blit(hint_surf, hint_rect)
@@ -386,8 +419,8 @@ class PauseMenuScreen:
             text_color = theme.get("text_color", text_color)
             dim_color = theme.get("text_dim", dim_color)
 
-        panel_w = 550
-        panel_h = 550
+        panel_w = min(600, self.sw - 40)
+        panel_h = min(560, self.sh - 60)
         px = self.sw // 2 - panel_w // 2
         py = self.sh // 2 - panel_h // 2
 
@@ -405,16 +438,29 @@ class PauseMenuScreen:
             title_rect = title_surf.get_rect(center=(self.sw // 2, py + 30))
             surface.blit(title_surf, title_rect)
 
-        if not self._info_font:
+        font = self._small_font or self._info_font
+        if not font:
             return
 
         unlocked_ids = self.save.get_save_data("achievements", [])
 
-        cy = py + 60
-        font = self._info_font
+        # Прокручиваемый список: все достижения доступны колесом мыши
+        row_h = font.get_height() + 8
+        list_top = py + 62
+        list_bottom = py + panel_h - 36
+        visible_h = max(1, list_bottom - list_top)
+        max_scroll = max(0, len(ACHIEVEMENTS) * row_h - visible_h)
+        self._sub_scroll = max(0, min(self._sub_scroll, max_scroll))
+
+        surface.set_clip(pygame.Rect(px + 12, list_top, panel_w - 24, visible_h))
+
+        cy = list_top - self._sub_scroll
 
         for ach in ACHIEVEMENTS:
-            if cy > py + panel_h - 40:
+            if cy + row_h < list_top:
+                cy += row_h
+                continue
+            if cy > list_bottom:
                 break
 
             is_unlocked = ach["id"] in unlocked_ids
@@ -436,11 +482,27 @@ class PauseMenuScreen:
             line = f"{icon} {name}"
             line_surf = font.render(line, True, color)
             surface.blit(line_surf, (px + 20, cy))
-            cy += 22
+            cy += row_h
+
+        surface.set_clip(None)
+
+        # Индикатор прокрутки
+        if max_scroll > 0:
+            track_h = visible_h
+            thumb_h = max(30, int(track_h * visible_h / (len(ACHIEVEMENTS) * row_h)))
+            thumb_y = list_top + int((track_h - thumb_h) * (self._sub_scroll / max_scroll))
+            pygame.draw.rect(
+                surface, (70, 70, 95),
+                (px + panel_w - 14, list_top, 5, track_h), border_radius=3
+            )
+            pygame.draw.rect(
+                surface, (120, 120, 155),
+                (px + panel_w - 14, thumb_y, 5, thumb_h), border_radius=3
+            )
 
         # Подсказка
         hint_surf = self._info_font.render(
-            "Click anywhere or press ESC to close", True, (100, 100, 120)
+            t("common.hint_close"), True, (100, 100, 120)
         )
         hint_rect = hint_surf.get_rect(center=(self.sw // 2, py + panel_h - 20))
         surface.blit(hint_surf, hint_rect)
@@ -455,9 +517,8 @@ class PauseMenuScreen:
         self.finished = False
         self._panel_alpha = 0
         self._target_panel_alpha = 255
-        self._panel_scale = 0.8
-        self._target_panel_scale = 1.0
         self._sub_screen = None
+        self._sub_scroll = 0
         self._initialized = False
         self._overlay = DarkOverlay(self.sw, self.sh, alpha=160)
 

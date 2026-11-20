@@ -9,6 +9,7 @@ import math
 
 from ui.button import Button
 from ui.panel import Panel
+from ui.fonts import get_font
 
 
 class LanguageSelectScreen:
@@ -40,9 +41,9 @@ class LanguageSelectScreen:
     def _init_fonts(self):
         """Инициализирует шрифты."""
         try:
-            self._title_font = pygame.font.Font(None, 52)
-            self._subtitle_font = pygame.font.Font(None, 28)
-            self._button_font = pygame.font.Font(None, 32)
+            self._title_font = get_font(52, bold=True)
+            self._subtitle_font = get_font(28)
+            self._button_font = get_font(32)
         except pygame.error:
             self._title_font = pygame.font.SysFont("arial", 48)
             self._subtitle_font = pygame.font.SysFont("arial", 24)
@@ -189,7 +190,7 @@ class LanguageSelectScreen:
             return
 
         # Тонкие линии "кода" на фоне
-        font = pygame.font.Font(None, 14)
+        font = get_font(14, family="FiraCode")
         code_lines = [
             "import pygame", "def main():", "    game.run()",
             "class Clicker:", "    money += 1", "while True:",

@@ -10,6 +10,7 @@ from ui.slider import Slider
 from ui.panel import Panel
 from ui.scrollbar import ScrollArea
 from locales.locale_manager import t
+from ui.fonts import get_font
 
 
 class SettingsScreen:
@@ -80,15 +81,15 @@ class SettingsScreen:
             self._body_font = fonts_dict.get("normal")
 
         if not self._title_font:
-            self._title_font = pygame.font.Font(None, 42)
+            self._title_font = get_font(42, bold=True)
         if not self._tab_font:
-            self._tab_font = pygame.font.Font(None, 24)
+            self._tab_font = get_font(24)
         if not self._label_font:
-            self._label_font = pygame.font.Font(None, 22)
+            self._label_font = get_font(22)
         if not self._small_font:
-            self._small_font = pygame.font.Font(None, 18)
+            self._small_font = get_font(18)
         if not self._body_font:
-            self._body_font = pygame.font.Font(None, 20)
+            self._body_font = get_font(20)
 
     def _init_ui(self):
         """Создаёт все UI элементы."""

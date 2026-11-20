@@ -15,6 +15,7 @@ from ui.scrollbar import ScrollArea
 from economy import format_money, format_number
 from data.themes import THEMES, THEME_ORDER, get_theme
 from locales.locale_manager import t
+from ui.fonts import get_font
 
 
 class ThemesShopScreen:
@@ -53,10 +54,10 @@ class ThemesShopScreen:
             self._fonts = fonts_dict
         else:
             self._fonts = {
-                "title": pygame.font.Font(None, 36),
-                "button": pygame.font.Font(None, 22),
-                "normal": pygame.font.Font(None, 20),
-                "small": pygame.font.Font(None, 16),
+                "title": get_font(36, bold=True),
+                "button": get_font(22),
+                "normal": get_font(20),
+                "small": get_font(16),
             }
 
     def _init_ui(self):

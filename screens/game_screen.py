@@ -31,6 +31,7 @@ from ui.panel import Panel
 from ui.scrollbar import ScrollArea
 from ui.tooltip import TooltipManager
 from ui.notification import NotificationManager
+from ui.fonts import load_theme_fonts
 from effects.particles import ParticleSystem
 from effects.floating_text import FloatingTextManager
 from effects.animations import AnimationManager
@@ -45,6 +46,20 @@ from data.upgrades import (
 from data.eras import get_era_for_money, get_era_data, ERAS
 from data.themes import get_theme
 from locales.locale_manager import t
+
+
+def fit_text(text, font, max_width, ellipsis="…"):
+    """Обрезает текст по фактической ширине в пикселях (а не по буквам)."""
+    if not font or not text:
+        return text
+    if font.size(text)[0] <= max_width:
+        return text
+
+    result = text
+    while result and font.size(result + ellipsis)[0] > max_width:
+        result = result[:-1]
+    result = result.rstrip()
+    return (result + ellipsis) if result else ellipsis
 
 
 class GameScreen:
@@ -130,19 +145,11 @@ class GameScreen:
         if fonts_dict:
             self._fonts = fonts_dict
         else:
-            self._fonts = {
-                "title": pygame.font.Font(None, 36),
-                "large": pygame.font.Font(None, 30),
-                "button": pygame.font.Font(None, 24),
-                "normal": pygame.font.Font(None, 20),
-                "small": pygame.font.Font(None, 16),
-                "tiny": pygame.font.Font(None, 14),
-                "money_big": pygame.font.Font(None, 32),
-                "click_text": pygame.font.Font(None, 42),
-            }
+            self._fonts = load_theme_fonts()
 
         self.tooltip.font = self._fonts.get("small")
-        self.notifications.font = self._fonts.get("normal")
+        # Уведомления — компактные, снизу экрана
+        self.notifications.font = self._fonts.get("small")
         self.notifications.small_font = self._fonts.get("small")
 
         font_path = None
@@ -266,10 +273,7 @@ class GameScreen:
         cat_btn_w = (SIDE_PANEL_WIDTH - 10) // len(CATEGORY_ORDER)
 
         for i, cat_id in enumerate(CATEGORY_ORDER):
-            cat_name = t(f"categories.{cat_id}")
-            # Сокращаем если не влезает
-            if font and font.size(cat_name)[0] > cat_btn_w - 6:
-                cat_name = cat_name[:6] + ".."
+            cat_name = fit_text(t(f"categories.{cat_id}"), font, cat_btn_w - 8)
 
             btn = Button(
                 shop_x + 5 + i * cat_btn_w,
@@ -303,9 +307,7 @@ class GameScreen:
         br_btn_w = (SIDE_PANEL_WIDTH - 10) // max(len(branches), 1)
 
         for i, br_id in enumerate(branches):
-            br_name = t(f"branches.{br_id}")
-            if font and font.size(br_name)[0] > br_btn_w - 6:
-                br_name = br_name[:7] + ".."
+            br_name = fit_text(t(f"branches.{br_id}"), font, br_btn_w - 8)
 
             btn = Button(
                 shop_x + 5 + i * br_btn_w,
@@ -332,6 +334,10 @@ class GameScreen:
     def handle_event(self, event):
         """Обрабатывает все события."""
         self._init_ui()
+
+        # Уведомления рисуются поверх игры — клик по ним просто закрывает их
+        if self.notifications.handle_event(event):
+            return True
 
         # Клавиатура
         if event.type == pygame.KEYDOWN:
@@ -929,8 +935,9 @@ class GameScreen:
         cy = self._click_center[1] + offset[1]
         base_r = self._click_button_radius
 
-        # Масштаб от нажатия и наведения (БЕЗ авто-пульсации!)
-        scale = self.animations.click_bounce.scale * getattr(self, "_click_hover_scale", 1.0)
+        # Масштаб кнопки: ТОЛЬКО отклик на нажатие и плавное наведение.
+        # Никакой пульсации/«дыхания» в простое — кнопка статична.
+        scale = self.animations.click_bounce.scale * self._click_hover_scale
         r = max(10, int(base_r * scale))
 
         era_data = get_era_data(self._current_era)

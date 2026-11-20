@@ -18,13 +18,11 @@ botyaraclick - game.py
 """
 
 import pygame
-import os
 import sys
 
 from config import (
     GAME_TITLE, DEFAULT_WIDTH, DEFAULT_HEIGHT, FPS,
-    FULLSCREEN_DEFAULT, FONTS_DIR, HOTKEY_FULLSCREEN,
-    BASE_DIR
+    FULLSCREEN_DEFAULT, HOTKEY_FULLSCREEN,
 )
 
 from core.save_manager import SaveManager
@@ -41,7 +39,8 @@ from screens.upgrade_tree import UpgradeTreeScreen
 from screens.themes_shop import ThemesShopScreen
 from screens.prestige_screen import PrestigeScreen
 
-from data.themes import get_theme, THEME_FONTS
+from data.themes import get_theme
+from ui.fonts import load_theme_fonts
 
 
 class GameState:
@@ -134,41 +133,14 @@ class Game:
             self.sound_manager.play_music("menu_theme")
 
     def _load_fonts(self, font_family):
-        """Загружает набор шрифтов для текущей темы."""
-        font_info = THEME_FONTS.get(font_family, THEME_FONTS.get("Montserrat", {}))
-        regular_file = font_info.get("regular", "Montserrat-Regular.ttf")
-        bold_file = font_info.get("bold", "Montserrat-Bold.ttf")
+        """
+        Загружает набор шрифтов для текущей темы.
 
-        regular_path = os.path.join(FONTS_DIR, regular_file)
-        bold_path = os.path.join(FONTS_DIR, bold_file)
-
-        # Проверяем существование файлов
-        if not os.path.exists(regular_path):
-            regular_path = None  # Будет использовать системный шрифт
-        if not os.path.exists(bold_path):
-            bold_path = regular_path  # Используем regular вместо bold
-
-        def make_font(path, size):
-            try:
-                if path:
-                    return pygame.font.Font(path, size)
-                else:
-                    return pygame.font.Font(None, size)
-            except (pygame.error, FileNotFoundError, OSError):
-                return pygame.font.Font(None, size)
-
-        self._fonts = {
-            "title": make_font(bold_path, 36),
-            "large": make_font(bold_path, 30),
-            "money_big": make_font(bold_path, 32),
-            "button": make_font(regular_path, 24),
-            "subtitle": make_font(regular_path, 22),
-            "normal": make_font(regular_path, 20),
-            "click_text": make_font(bold_path, 42),
-            "small": make_font(regular_path, 16),
-            "tiny": make_font(regular_path, 14),
-        }
-
+        Шрифты берутся из assets/fonts (лежат в репозитории, интернет не нужен).
+        Каждый шрифт — FallbackFont: он сам подставляет Montserrat для
+        кириллицы и NotoEmoji для эмодзи, если в шрифте темы их нет.
+        """
+        self._fonts = load_theme_fonts(font_family)
         self._current_font_family = font_family
 
     def _reload_fonts_for_theme(self):
@@ -410,6 +382,13 @@ class Game:
             return
 
         screen.update(dt)
+
+        # Смена языка в настройках применяется сразу: пересобираем экраны,
+        # чтобы все надписи перерисовались на новом языке.
+        if (self.state in (GameState.SETTINGS, GameState.SETTINGS_FROM_PAUSE)
+                and getattr(screen, "result", None) == "language_changed"):
+            screen.result = None
+            self._reinit_screens()
 
         # Обрабатываем результаты экранов
         if hasattr(screen, 'finished') and screen.finished:

@@ -7,6 +7,7 @@ botyaraclick - effects/animations.py
 import pygame
 import math
 import time
+from ui.fonts import get_font
 
 
 class Animation:
@@ -52,7 +53,12 @@ class Animation:
 class PulseAnimation(Animation):
     """
     Пульсация — плавное изменение масштаба.
-    Используется для кнопки клика.
+
+    ВНИМАНИЕ: к кнопке клика НЕ применяется.
+    Раньше кнопка «дышала» в простое — это раздражало и выглядело дёшево.
+    Теперь в idle кнопка полностью статична: анимация есть только на
+    наведение и на нажатие (ClickBounce). Класс оставлен для других
+    декоративных элементов.
     """
 
     def __init__(self, min_scale=0.95, max_scale=1.05,
@@ -304,10 +310,7 @@ class EraTransition(Animation):
                 # Масштабированный текст
                 base_size = 48
                 scaled_size = max(12, int(base_size * self._text_scale))
-                try:
-                    big_font = pygame.font.Font(f.path if hasattr(f, 'path') else None, scaled_size)
-                except (AttributeError, TypeError):
-                    big_font = pygame.font.Font(None, scaled_size)
+                big_font = get_font(scaled_size, bold=True)
 
                 text_surf = big_font.render(era_name, True, (255, 255, 255))
                 text_surf.set_alpha(min(255, self._text_alpha))
@@ -362,7 +365,6 @@ class AnimationManager:
         self.click_bounce = ClickBounce()
         self.era_transition = None
         self.screen_shake = None
-        self.pulse = PulseAnimation()
 
     def add(self, anim_id, animation):
         """Добавляет анимацию по ID."""
@@ -404,9 +406,9 @@ class AnimationManager:
         for key in dead_keys:
             del self.animations[key]
 
-        # Специальные анимации
+        # Специальные анимации.
+        # click_bounce — только отклик на нажатие (в простое масштаб = 1.0).
         self.click_bounce.update(dt)
-        self.pulse.update(dt)
 
         if self.screen_shake:
             self.screen_shake.update(dt)

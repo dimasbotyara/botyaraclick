@@ -21,6 +21,7 @@ from data.prestige import (
 )
 from config import PRESTIGE_THRESHOLD
 from locales.locale_manager import t
+from ui.fonts import get_font
 
 
 class PrestigeScreen:
@@ -60,11 +61,11 @@ class PrestigeScreen:
             self._fonts = fonts_dict
         else:
             self._fonts = {
-                "title": pygame.font.Font(None, 42),
-                "large": pygame.font.Font(None, 30),
-                "button": pygame.font.Font(None, 24),
-                "normal": pygame.font.Font(None, 20),
-                "small": pygame.font.Font(None, 16),
+                "title": get_font(42, bold=True),
+                "large": get_font(30, bold=True),
+                "button": get_font(24),
+                "normal": get_font(20),
+                "small": get_font(16),
             }
 
     def _init_ui(self):

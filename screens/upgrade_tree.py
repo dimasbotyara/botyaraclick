@@ -21,6 +21,7 @@ from data.upgrades import (
 )
 from data.eras import ERAS
 from locales.locale_manager import t
+from ui.fonts import get_font
 
 
 class UpgradeTreeScreen:
@@ -70,11 +71,11 @@ class UpgradeTreeScreen:
             self._fonts = fonts_dict
         else:
             self._fonts = {
-                "title": pygame.font.Font(None, 36),
-                "button": pygame.font.Font(None, 22),
-                "normal": pygame.font.Font(None, 18),
-                "small": pygame.font.Font(None, 15),
-                "tiny": pygame.font.Font(None, 13),
+                "title": get_font(36, bold=True),
+                "button": get_font(22),
+                "normal": get_font(18),
+                "small": get_font(15),
+                "tiny": get_font(13),
             }
         self._tooltip.font = self._fonts.get("small")
 

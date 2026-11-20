@@ -11,6 +11,7 @@ import time
 from ui.button import Button
 from ui.panel import Panel
 from locales.locale_manager import t
+from ui.fonts import get_font
 
 
 class MainMenuScreen:
@@ -96,15 +97,15 @@ class MainMenuScreen:
             self._small_font = fonts_dict.get("small")
         
         if not self._title_font:
-            self._title_font = pygame.font.Font(None, 72)
+            self._title_font = get_font(72, bold=True)
         if not self._subtitle_font:
-            self._subtitle_font = pygame.font.Font(None, 24)
+            self._subtitle_font = get_font(24)
         if not self._button_font:
-            self._button_font = pygame.font.Font(None, 30)
+            self._button_font = get_font(30)
         if not self._small_font:
-            self._small_font = pygame.font.Font(None, 18)
+            self._small_font = get_font(18)
 
-        self._code_font = pygame.font.Font(None, 14)
+        self._code_font = get_font(14, family="FiraCode")
 
     def _init_buttons(self):
         """Создаёт кнопки меню."""

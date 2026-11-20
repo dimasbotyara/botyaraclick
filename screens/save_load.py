@@ -12,6 +12,7 @@ from ui.panel import Panel
 from ui.popup import PopupManager
 from locales.locale_manager import t
 from economy import format_money, format_time
+from ui.fonts import get_font
 
 
 class SaveLoadScreen:
@@ -60,13 +61,13 @@ class SaveLoadScreen:
             self._small_font = fonts_dict.get("small")
 
         if not self._title_font:
-            self._title_font = pygame.font.Font(None, 42)
+            self._title_font = get_font(42, bold=True)
         if not self._button_font:
-            self._button_font = pygame.font.Font(None, 26)
+            self._button_font = get_font(26)
         if not self._info_font:
-            self._info_font = pygame.font.Font(None, 20)
+            self._info_font = get_font(20)
         if not self._small_font:
-            self._small_font = pygame.font.Font(None, 16)
+            self._small_font = get_font(16)
 
     def _init_ui(self):
         """Создаёт UI элементы."""

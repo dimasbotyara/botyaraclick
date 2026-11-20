@@ -31,8 +31,8 @@ STRINGS = {
     # === ИГРОВОЙ ЭКРАН ===
     "game": {
         "click": "CLICK!",
-        "per_click": "$/click",
-        "per_second": "$/sec",
+        "per_click": "click",
+        "per_second": "sec",
         "balance": "Balance",
         "total_earned": "Total earned",
         "era": "Era",
@@ -653,6 +653,7 @@ STRINGS = {
         "loading": "Loading...",
         "saving": "Saving...",
         "crit": "CRIT!",
+        "hint_close": "Click or ESC to close",
     },
 
     # === ВЫХОД ===

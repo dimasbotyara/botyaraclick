@@ -18,6 +18,7 @@ botyaraclick - effects/bg_effects.py
 import pygame
 import random
 import math
+from ui.fonts import get_font
 
 
 class MatrixRainDrop:
@@ -258,8 +259,8 @@ class MatrixRainEffect(BackgroundEffect):
     def draw(self, surface):
         if not self._font:
             try:
-                self._font = pygame.font.Font(None, 14)
-            except pygame.error:
+                self._font = get_font(14, family="FiraCode")
+            except (pygame.error, TypeError):
                 return
 
         for drop in self.drops:
