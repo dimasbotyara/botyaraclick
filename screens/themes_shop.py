@@ -11,6 +11,7 @@ import pygame
 import math
 
 from ui.button import Button
+from ui import style
 from ui.scrollbar import ScrollArea
 from economy import format_money, format_number
 from data.themes import THEMES, THEME_ORDER, get_theme
@@ -339,10 +340,13 @@ class ThemesShopScreen:
                         surf.blit(name_surf, (preview_x, card_y + 50))
 
                     # Шрифт темы
-                    font_name = td.get("font_file", "")
+                    font_name = td.get("font_file", "") or ""
+                    if font_name.endswith((".ttf", ".otf")):
+                        font_name = font_name.rsplit(".", 1)[0]
                     if font_small and font_name:
                         font_info = font_small.render(
-                            f"Font: {font_name}", True, dim_color
+                            f"{t('themes.font_label')}: {font_name}",
+                            True, dim_color
                         )
                         surf.blit(font_info, (preview_x, card_y + 72))
 
@@ -350,7 +354,9 @@ class ThemesShopScreen:
                     bg_effect = td.get("bg_effect", "none")
                     if font_small and bg_effect != "none":
                         effect_info = font_small.render(
-                            f"Effect: {bg_effect}", True, dim_color
+                            f"{t('themes.effect_label')}: "
+                            f"{t(f'themes.effect_{bg_effect}')}",
+                            True, dim_color
                         )
                         surf.blit(effect_info, (preview_x, card_y + 90))
 
@@ -371,10 +377,12 @@ class ThemesShopScreen:
                     elif can_afford:
                         btn_bg = (50, 120, 70)
                         cost_str = format_money(cost, self._num_format)
-                        btn_text = f"{t('shop.buy')}".replace("${cost}", cost_str)
-                        if "${cost}" not in t("shop.buy"):
-                            btn_text = f"Buy {cost_str}"
-                        btn_text_c = (200, 255, 200)
+                        btn_text = t("themes.buy").replace("${cost}", cost_str)
+                        if "${cost}" in t("themes.buy"):
+                            btn_text_c = (200, 255, 200)
+                        else:
+                            btn_text = f"{t('themes.buy')} {cost_str}"
+                            btn_text_c = (200, 255, 200)
                     else:
                         btn_bg = (100, 50, 50)
                         cost_str = format_money(cost, self._num_format)
@@ -399,14 +407,17 @@ class ThemesShopScreen:
                         bt_rect = bt_surf.get_rect(center=(btn_x + btn_w // 2, btn_y + btn_h // 2))
                         surf.blit(bt_surf, bt_rect)
 
-                    # Иконка "экипировано"
-                    if is_equipped and font_normal:
-                        check_surf = font_normal.render("✓", True, (80, 200, 100))
-                        check_rect = check_surf.get_rect(
-                            right=card_x + card_w - 15,
-                            top=card_y + 10
+                    # Иконка «экипировано» — рисуем галочку линиями
+                    if is_equipped:
+                        badge_c = (card_x + card_w - 24, card_y + 24)
+                        style.draw_soft_rect(
+                            surf,
+                            pygame.Rect(badge_c[0] - 13, badge_c[1] - 13, 26, 26),
+                            (80, 200, 110), 60, radius=13
                         )
-                        surf.blit(check_surf, check_rect)
+                        style.draw_check(
+                            surf, badge_c, size=13, color=(120, 235, 150)
+                        )
 
             self._scroll.draw(surface, theme, draw_cards)
 

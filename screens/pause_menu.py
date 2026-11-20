@@ -17,6 +17,7 @@ from ui.button import Button
 from ui.panel import Panel, DarkOverlay
 from ui.popup import PopupManager
 from locales.locale_manager import t
+from ui import style
 from economy import format_money, format_number, format_time, format_percent
 from ui.fonts import get_font
 
@@ -338,10 +339,12 @@ class PauseMenuScreen:
         px = self.sw // 2 - panel_w // 2
         py = self.sh // 2 - panel_h // 2
 
-        panel_surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
         bg = theme.get("panel_color", (35, 35, 50)) if theme else (35, 35, 50)
-        pygame.draw.rect(panel_surf, (*bg, 240), (0, 0, panel_w, panel_h), border_radius=12)
-        surface.blit(panel_surf, (px, py))
+        panel_rect = pygame.Rect(px, py, panel_w, panel_h)
+        style.draw_panel(
+            surface, panel_rect, bg, radius=14, alpha=242,
+            gradient=0.12, shadow=True, shadow_alpha=90
+        )
 
         # Заголовок
         if self._title_font:
@@ -387,15 +390,28 @@ class PauseMenuScreen:
              str(self.save.get_save_data("debuffs_survived", 0))),
         ]
 
-        row_h = max(20, min(28, (panel_h - 90) // max(1, len(stats))))
-        cy = py + 60
-        for label, value in stats:
-            label_surf = self._info_font.render(label + ":", True, dim_color)
-            value_surf = self._info_font.render(value, True, money_color)
+        row_h = max(22, min(30, (panel_h - 96) // max(1, len(stats))))
+        cy = py + 58
+        for i, (label, value) in enumerate(stats):
+            row = pygame.Rect(px + 14, cy, panel_w - 28, row_h - 3)
 
-            surface.blit(label_surf, (px + 25, cy))
-            value_rect = value_surf.get_rect(right=px + panel_w - 25, top=cy)
-            surface.blit(value_surf, value_rect)
+            # «Зебра» из полупрозрачных полос
+            if i % 2 == 0:
+                style.draw_soft_rect(
+                    surface, row, (255, 255, 255), 12, radius=6
+                )
+
+            label_surf = self._info_font.render(label, True, dim_color)
+            surface.blit(
+                label_surf,
+                label_surf.get_rect(midleft=(row.x + 10, row.centery))
+            )
+
+            value_surf = self._info_font.render(value, True, money_color)
+            surface.blit(
+                value_surf,
+                value_surf.get_rect(midright=(row.right - 10, row.centery))
+            )
 
             cy += row_h
 
@@ -424,10 +440,12 @@ class PauseMenuScreen:
         px = self.sw // 2 - panel_w // 2
         py = self.sh // 2 - panel_h // 2
 
-        panel_surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
         bg = theme.get("panel_color", (35, 35, 50)) if theme else (35, 35, 50)
-        pygame.draw.rect(panel_surf, (*bg, 240), (0, 0, panel_w, panel_h), border_radius=12)
-        surface.blit(panel_surf, (px, py))
+        panel_rect = pygame.Rect(px, py, panel_w, panel_h)
+        style.draw_panel(
+            surface, panel_rect, bg, radius=14, alpha=242,
+            gradient=0.12, shadow=True, shadow_alpha=90
+        )
 
         # Заголовок
         if self._title_font:
@@ -445,8 +463,8 @@ class PauseMenuScreen:
         unlocked_ids = self.save.get_save_data("achievements", [])
 
         # Прокручиваемый список: все достижения доступны колесом мыши
-        row_h = font.get_height() + 8
-        list_top = py + 62
+        row_h = 50
+        list_top = py + 70
         list_bottom = py + panel_h - 36
         visible_h = max(1, list_bottom - list_top)
         max_scroll = max(0, len(ACHIEVEMENTS) * row_h - visible_h)
@@ -470,18 +488,55 @@ class PauseMenuScreen:
                 name = t(f"achievements.{ach['id']}")
                 icon = "✅"
                 color = unlock_color
+                desc = t(f"achievement_desc.{ach['id']}")
             elif is_secret:
                 name = t("achievements.secret")
                 icon = "❓"
                 color = lock_color
+                desc = ""
             else:
                 name = t(f"achievements.{ach['id']}")
                 icon = "🔒"
                 color = lock_color
+                desc = t(f"achievement_desc.{ach['id']}")
 
-            line = f"{icon} {name}"
-            line_surf = font.render(line, True, color)
-            surface.blit(line_surf, (px + 20, cy))
+            row_rect = pygame.Rect(px + 14, cy + 2, panel_w - 40, row_h - 6)
+
+            # Фон строки
+            row_alpha = 30 if is_unlocked else 14
+            style.draw_soft_rect(
+                surface, row_rect,
+                (90, 220, 140) if is_unlocked else (255, 255, 255),
+                row_alpha, radius=8
+            )
+
+            # Иконка
+            icon_surf = font.render(icon, True, color)
+            surface.blit(
+                icon_surf,
+                icon_surf.get_rect(midleft=(row_rect.x + 10, row_rect.centery))
+            )
+
+            # Название
+            name_x = row_rect.x + 38
+            name_w = row_rect.width - 50
+            name_surf = font.render(
+                style.fit_text(name, font, name_w), True,
+                color if not is_unlocked else (200, 255, 215)
+            )
+            surface.blit(name_surf, (name_x, row_rect.y + 4))
+
+            # Описание
+            if not hasattr(self, "_desc_font"):
+                from ui.fonts import get_font as _gf
+                self._desc_font = _gf(14)
+            tiny = self._desc_font
+            if desc and tiny and not is_secret:
+                desc_surf = tiny.render(
+                    style.fit_text(desc, tiny, name_w), True, (128, 138, 160)
+                )
+                surface.blit(desc_surf, (name_x, row_rect.y + 25))
+
             cy += row_h
 
         surface.set_clip(None)

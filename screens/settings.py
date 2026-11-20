@@ -5,7 +5,9 @@ botyaraclick - screens/settings.py
 
 import pygame
 
-from ui.button import Button, ToggleButton
+from ui.button import Button
+from ui import style
+from ui.button import ToggleButton
 from ui.slider import Slider
 from ui.panel import Panel
 from ui.scrollbar import ScrollArea
@@ -167,7 +169,7 @@ class SettingsScreen:
         )
 
         self._mute_toggle = ToggleButton(
-            content_x, content_y + 150, 200, 40,
+            content_x, content_y + 150, 400, 40,
             text=t("settings.mute_all"),
             font=self._label_font,
             toggled=muted,
@@ -202,7 +204,7 @@ class SettingsScreen:
         float_text_on = self.save.get_setting("floating_text_enabled", True)
 
         self._particles_toggle = ToggleButton(
-            content_x, content_y + 200, 250, 40,
+            content_x, content_y + 200, 400, 40,
             text=t("settings.particles"),
             font=self._label_font,
             toggled=particles_on,
@@ -213,7 +215,7 @@ class SettingsScreen:
         )
 
         self._floating_text_toggle = ToggleButton(
-            content_x, content_y + 250, 250, 40,
+            content_x, content_y + 250, 400, 40,
             text=t("settings.floating_text"),
             font=self._label_font,
             toggled=float_text_on,
@@ -231,7 +233,7 @@ class SettingsScreen:
         for i, (code, name) in enumerate(languages):
             btn = Button(
                 content_x, content_y + 30 + i * 55,
-                300, 45,
+                400, 45,
                 text=name,
                 font=self._label_font,
                 color=(60, 100, 160) if code == current_lang else (55, 55, 75),
@@ -414,22 +416,35 @@ class SettingsScreen:
         """Рисует экран настроек."""
         self._init_ui()
 
-        # Фон
+        # Фон: мягкий градиент вместо плоской заливки
         bg_color = (25, 25, 38)
         if theme:
             bg_color = theme.get("bg_color", bg_color)
-        surface.fill(bg_color)
+        bg = style.vertical_gradient(
+            (self.screen_width, self.screen_height),
+            style.darken(bg_color, 0.20), style.lighten(bg_color, 0.07)
+        )
+        surface.blit(bg, (0, 0))
 
-        # Заголовок
+        # Заголовок + акцентная линия
         if self._title_font:
             title_surf = self._title_font.render(
-                t("settings.title"), True, (200, 210, 230)
+                t("settings.title"), True, (222, 232, 248)
             )
             title_surf.set_alpha(int(self._alpha))
             title_rect = title_surf.get_rect(
-                center=(self.screen_width // 2, 50)
+                center=(self.screen_width // 2, 52)
             )
             surface.blit(title_surf, title_rect)
+
+            accent = theme.get("accent_color", (80, 140, 240)) if theme else (80, 140, 240)
+            bar_w = 96
+            style.draw_soft_rect(
+                surface,
+                pygame.Rect(self.screen_width // 2 - bar_w // 2,
+                            title_rect.bottom + 4, bar_w, 3),
+                accent, 170, radius=2
+            )
 
         # Вкладки
         for btn in self._tab_buttons.values():
@@ -438,6 +453,34 @@ class SettingsScreen:
         # Контент
         content_y = 160
         content_x = self.screen_width // 2 - 250
+
+        card = None
+        if self.current_tab in (self.TAB_HELP, self.TAB_CREDITS):
+            card = pygame.Rect(
+                content_x - 30, content_y - 18, 580,
+                self.screen_height - content_y - 62
+            )
+        elif self.current_tab in (self.TAB_AUDIO, self.TAB_VISUALS,
+                                  self.TAB_GAMEPLAY):
+            if self.current_tab == self.TAB_AUDIO:
+                card_bottom = content_y + 190
+            elif self.current_tab == self.TAB_VISUALS:
+                card_bottom = content_y + 290
+            else:
+                n_lang = max(1, len(self._language_buttons))
+                card_bottom = content_y + 30 + (n_lang - 1) * 55 + 45
+
+            card = pygame.Rect(
+                content_x - 30, content_y - 10,
+                460, card_bottom - content_y + 40
+            )
+
+        if card is not None:
+            panel_color = theme.get("panel_color", (40, 40, 55)) if theme else (40, 40, 55)
+            style.draw_panel(
+                surface, card, panel_color, radius=14,
+                alpha=210, gradient=0.10, shadow=True, shadow_alpha=70
+            )
 
         if self.current_tab == self.TAB_AUDIO:
             self._draw_audio_tab(surface, content_x, content_y, theme)
@@ -454,6 +497,17 @@ class SettingsScreen:
         if self._back_button:
             self._back_button.draw(surface, theme)
 
+    def _draw_section_label(self, surface, text, x, y):
+        """Заголовок секции: акцентная полоска + текст."""
+        if not self._label_font:
+            return
+        style.draw_soft_rect(
+            surface, pygame.Rect(x - 14, y + 3, 4, 18),
+            (90, 150, 250), 220, radius=2
+        )
+        label = self._label_font.render(text, True, (196, 210, 235))
+        surface.blit(label, (x, y))
+
     def _draw_audio_tab(self, surface, x, y, theme):
         """Рисует вкладку аудио."""
         if self._music_slider:
@@ -466,21 +520,16 @@ class SettingsScreen:
     def _draw_visuals_tab(self, surface, x, y, theme):
         """Рисует вкладку визуала."""
         # Заголовок секции
-        if self._label_font:
-            sec_surf = self._label_font.render(
-                t("settings.number_format"), True, (180, 180, 200)
-            )
-            surface.blit(sec_surf, (x, y + 5))
+        self._draw_section_label(surface, t("settings.number_format"), x, y + 5)
 
         for btn in self._number_format_buttons.values():
             btn.draw(surface, theme)
 
         # Разделитель
-        if self._label_font:
-            eff_surf = self._label_font.render(
-                t("settings.effects_enabled"), True, (180, 180, 200)
-            )
-            surface.blit(eff_surf, (x, y + 175))
+        style.draw_separator(
+            surface, x, x + 400, y + 165, (255, 255, 255), alpha=30
+        )
+        self._draw_section_label(surface, t("settings.effects_enabled"), x, y + 180)
 
         if self._particles_toggle:
             self._particles_toggle.draw(surface, theme)
@@ -489,11 +538,7 @@ class SettingsScreen:
 
     def _draw_gameplay_tab(self, surface, x, y, theme):
         """Рисует вкладку геймплея."""
-        if self._label_font:
-            lang_surf = self._label_font.render(
-                t("settings.language"), True, (180, 180, 200)
-            )
-            surface.blit(lang_surf, (x, y + 5))
+        self._draw_section_label(surface, t("settings.language"), x, y + 5)
 
         for btn in self._language_buttons:
             btn.draw(surface, theme)

@@ -11,6 +11,7 @@ STRINGS = {
     # === ГЛАВНОЕ МЕНЮ ===
     "menu": {
         "title": "botyaraclick",
+        "subtitle": "Из гаража — к звёздам",
         "play": "Играть",
         "continue": "Продолжить",
         "settings": "Настройки",
@@ -569,6 +570,16 @@ STRINGS = {
         "prestige_event_luck": "Удача предпринимателя",
         "prestige_golden_time": "Быстрая реакция",
         "prestige_double_achievement": "Синергия достижений",
+        "totals": "Всего заработано: {earned}  |  Престижей: {count}  |  Всего ОР: {rp}",
+        "eff_percent": "+{value}% за уровень",
+        "eff_percent_neg": "−{value}% за уровень",
+        "eff_mult": "+{value}x за уровень",
+        "eff_per_sec": "+{value}/сек за уровень",
+        "eff_money": "+${value} за уровень",
+        "eff_seconds": "+{value} сек за уровень",
+        "eff_plain": "+{value} за уровень",
+        "max_level": "МАКС (ур. {count})",
+        "cost_line": "Цена: {cost} ОР  |  ур. {count}",
     },
 
     # Описания престиж-улучшений
@@ -630,6 +641,17 @@ STRINGS = {
         "infernal": "Лавовая Пещера",
         "halloween": "Хэллоуин",
         "winter": "Зимняя Сказка",
+        "font_label": "Шрифт",
+        "effect_label": "Эффект",
+        "effect_none": "без эффекта",
+        "effect_matrix_rain": "цифровой дождь",
+        "effect_falling_leaves": "падающие листья",
+        "effect_scanlines": "скан-линии",
+        "effect_gold_sparkle": "золотые блёстки",
+        "effect_stars": "звёзды",
+        "effect_bubbles": "пузырьки",
+        "effect_embers": "искры",
+        "effect_bats": "летучие мыши",
     },
 
     # === ДЕРЕВО УЛУЧШЕНИЙ ===
