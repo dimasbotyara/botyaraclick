@@ -18,6 +18,7 @@ from ui.panel import Panel, DarkOverlay
 from ui.popup import PopupManager
 from locales.locale_manager import t
 from ui import style
+from ui.style import fit_text
 from economy import format_money, format_number, format_time, format_percent
 from ui.fonts import get_font
 
@@ -61,6 +62,11 @@ class PauseMenuScreen:
 
         # Субэкран: статистика / достижения
         self._sub_screen = None  # "statistics", "achievements"
+        self._sub_panel_rect = None
+        self._sub_max_scroll = 0
+        self._sub_dragging = False
+        self._sub_drag_y = 0
+        self._sub_drag_start = 0
         self._sub_scroll = 0
 
         self._initialized = False
@@ -159,22 +165,14 @@ class PauseMenuScreen:
 
         # Попапы
         if self._popup_manager.has_popup:
-            self._popup_manager.handle_event(event, self._button_font)
+            self._popup_manager.handle_event(
+                event, self._button_font, getattr(self, "_theme", None)
+            )
             return True
 
         # Субэкраны
         if self._sub_screen:
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                self._sub_screen = None
-                return True
-            if event.type == pygame.MOUSEWHEEL:
-                self._sub_scroll = max(0, self._sub_scroll - event.y * 34)
-                return True
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                self._sub_screen = None
-                self._sub_scroll = 0
-                return True
-            return True
+            return self._handle_sub_screen_event(event)
 
         # ESC = resume
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -189,6 +187,54 @@ class PauseMenuScreen:
                 return True
 
         return True  # Пауза поглощает все события
+
+    def _set_sub_scroll(self, value):
+        """Ставит прокрутку субэкрана с ограничением по контенту."""
+        limit = max(0, getattr(self, "_sub_max_scroll", 0))
+        self._sub_scroll = max(0, min(int(value), limit))
+
+    def _handle_sub_screen_event(self, event):
+        """События списков достижений/статистики: колесо, драг, клик вне."""
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            self._close_sub_screen()
+            return True
+
+        if event.type == pygame.MOUSEWHEEL:
+            self._set_sub_scroll(self._sub_scroll - event.y * 40)
+            return True
+
+        button = getattr(event, "button", None)
+        panel_rect = getattr(self, "_sub_panel_rect", None)
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # Колесо под видом кнопок 4/5 не должно закрывать список
+            if button not in (1, None):
+                return True
+            if panel_rect and panel_rect.collidepoint(event.pos):
+                # Тянем содержимое мышкой
+                self._sub_dragging = True
+                self._sub_drag_y = event.pos[1]
+                self._sub_drag_start = self._sub_scroll
+            else:
+                self._close_sub_screen()
+            return True
+
+        if event.type == pygame.MOUSEMOTION and getattr(self, "_sub_dragging", False):
+            delta = event.pos[1] - self._sub_drag_y
+            self._set_sub_scroll(self._sub_drag_start - delta)
+            return True
+
+        if event.type == pygame.MOUSEBUTTONUP and button in (1, None):
+            self._sub_dragging = False
+            return True
+
+        return True
+
+    def _close_sub_screen(self):
+        """Закрывает список достижений/статистики."""
+        self._sub_screen = None
+        self._sub_scroll = 0
+        self._sub_dragging = False
 
     def _handle_button(self, btn_id):
         """Обрабатывает нажатие кнопки."""
@@ -210,10 +256,12 @@ class PauseMenuScreen:
         elif btn_id == "achievements":
             self._sub_screen = "achievements"
             self._sub_scroll = 0
+            self._sub_dragging = False
 
         elif btn_id == "statistics":
             self._sub_screen = "statistics"
             self._sub_scroll = 0
+            self._sub_dragging = False
 
         elif btn_id == "settings":
             self.result = "settings"
@@ -225,8 +273,10 @@ class PauseMenuScreen:
                 message=t("pause.unsaved_warning"),
                 choices=[
                     {"text": t("pause.save_and_quit"), "value": "save_quit"},
-                    {"text": t("pause.quit_no_save"), "value": "no_save"},
-                    {"text": t("common.cancel"), "value": "cancel"},
+                    {"text": t("pause.quit_no_save"), "value": "no_save",
+                     "danger": True},
+                    {"text": t("common.cancel"), "value": "cancel",
+                     "neutral": True},
                 ],
                 on_result=self._on_quit_choice,
             )
@@ -273,6 +323,7 @@ class PauseMenuScreen:
     def draw(self, surface, theme=None):
         """Рисует меню паузы поверх игры."""
         self._init_ui()
+        self._theme = theme
 
         # Затемнение
         self._overlay.draw(surface)
@@ -321,6 +372,38 @@ class PauseMenuScreen:
 
         layer.set_alpha(alpha)
         surface.blit(layer, (0, 0))
+
+    def _draw_sub_hint(self, surface, y, scrollable=False,
+                       max_width=None, center_x=None):
+        """Нижняя подсказка списка (не вылезает за панель)."""
+        if not self._info_font:
+            return
+        if scrollable:
+            text = (f"{t('common.hint_scroll')}  •  "
+                    f"{t('common.hint_close_short')}")
+        else:
+            text = t("common.hint_close")
+
+        if max_width:
+            text = fit_text(text, self._info_font, int(max_width))
+
+        hint_surf = self._info_font.render(text, True, (108, 112, 134))
+        cx = self.sw // 2 if center_x is None else center_x
+        hint_rect = hint_surf.get_rect(center=(cx, y))
+        surface.blit(hint_surf, hint_rect)
+
+    def _draw_sub_scrollbar(self, surface, x, top, visible_h,
+                            content_h, max_scroll):
+        """Полоса прокрутки списка (её тоже можно тянуть мышкой)."""
+        track = pygame.Rect(x, top, 5, visible_h)
+        style.draw_soft_rect(surface, track, (255, 255, 255), 22, radius=3)
+
+        thumb_h = max(28, int(visible_h * visible_h / max(1, content_h)))
+        thumb_h = min(thumb_h, visible_h)
+        ratio = self._sub_scroll / max_scroll if max_scroll else 0
+        thumb_y = top + int((visible_h - thumb_h) * ratio)
+        thumb = pygame.Rect(x, thumb_y, 5, thumb_h)
+        style.draw_soft_rect(surface, thumb, (150, 170, 210), 190, radius=3)
 
     def _draw_statistics(self, surface, theme):
         """Рисует экран статистики."""
@@ -390,10 +473,26 @@ class PauseMenuScreen:
              str(self.save.get_save_data("debuffs_survived", 0))),
         ]
 
-        row_h = max(22, min(30, (panel_h - 96) // max(1, len(stats))))
-        cy = py + 58
+        row_h = 28
+        list_top = py + 56
+        list_bottom = py + panel_h - 50
+        visible_h = max(1, list_bottom - list_top)
+        content_h = len(stats) * row_h
+
+        max_scroll = max(0, content_h - visible_h)
+        self._sub_panel_rect = panel_rect
+        self._sub_max_scroll = max_scroll
+        self._set_sub_scroll(self._sub_scroll)
+
+        surface.set_clip(pygame.Rect(px + 8, list_top, panel_w - 16, visible_h))
+
+        cy = list_top - self._sub_scroll
         for i, (label, value) in enumerate(stats):
             row = pygame.Rect(px + 14, cy, panel_w - 28, row_h - 3)
+            cy += row_h
+
+            if row.bottom < list_top - 2 or row.top > list_bottom + 2:
+                continue
 
             # «Зебра» из полупрозрачных полос
             if i % 2 == 0:
@@ -413,14 +512,20 @@ class PauseMenuScreen:
                 value_surf.get_rect(midright=(row.right - 10, row.centery))
             )
 
-            cy += row_h
+        surface.set_clip(None)
+
+        # Скроллбар, если всё не влезло
+        if max_scroll > 0:
+            self._draw_sub_scrollbar(
+                surface, px + panel_w - 12, list_top, visible_h,
+                content_h, max_scroll
+            )
 
         # Подсказка
-        hint_surf = self._info_font.render(
-            t("common.hint_close"), True, (100, 100, 120)
+        self._draw_sub_hint(
+            surface, py + panel_h - 22, max_scroll > 0,
+            max_width=panel_w - 24, center_x=px + panel_w // 2
         )
-        hint_rect = hint_surf.get_rect(center=(self.sw // 2, py + panel_h - 20))
-        surface.blit(hint_surf, hint_rect)
 
     def _draw_achievements(self, surface, theme):
         """Рисует экран достижений."""
@@ -465,10 +570,12 @@ class PauseMenuScreen:
         # Прокручиваемый список: все достижения доступны колесом мыши
         row_h = 50
         list_top = py + 70
-        list_bottom = py + panel_h - 36
+        list_bottom = py + panel_h - 50
         visible_h = max(1, list_bottom - list_top)
         max_scroll = max(0, len(ACHIEVEMENTS) * row_h - visible_h)
-        self._sub_scroll = max(0, min(self._sub_scroll, max_scroll))
+        self._sub_panel_rect = panel_rect
+        self._sub_max_scroll = max_scroll
+        self._set_sub_scroll(self._sub_scroll)
 
         surface.set_clip(pygame.Rect(px + 12, list_top, panel_w - 24, visible_h))
 
@@ -543,24 +650,16 @@ class PauseMenuScreen:
 
         # Индикатор прокрутки
         if max_scroll > 0:
-            track_h = visible_h
-            thumb_h = max(30, int(track_h * visible_h / (len(ACHIEVEMENTS) * row_h)))
-            thumb_y = list_top + int((track_h - thumb_h) * (self._sub_scroll / max_scroll))
-            pygame.draw.rect(
-                surface, (70, 70, 95),
-                (px + panel_w - 14, list_top, 5, track_h), border_radius=3
-            )
-            pygame.draw.rect(
-                surface, (120, 120, 155),
-                (px + panel_w - 14, thumb_y, 5, thumb_h), border_radius=3
+            self._draw_sub_scrollbar(
+                surface, px + panel_w - 12, list_top, visible_h,
+                len(ACHIEVEMENTS) * row_h, max_scroll
             )
 
         # Подсказка
-        hint_surf = self._info_font.render(
-            t("common.hint_close"), True, (100, 100, 120)
+        self._draw_sub_hint(
+            surface, py + panel_h - 22, max_scroll > 0,
+            max_width=panel_w - 24, center_x=px + panel_w // 2
         )
-        hint_rect = hint_surf.get_rect(center=(self.sw // 2, py + panel_h - 20))
-        surface.blit(hint_surf, hint_rect)
 
     def set_achievement_tracker(self, tracker):
         """Устанавливает ссылку на трекер достижений."""

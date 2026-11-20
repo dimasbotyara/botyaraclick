@@ -297,5 +297,190 @@ class ClickButtonIdleTests(unittest.TestCase):
         )
 
 
+# =====================================================================
+# 6. ДИАЛОГИ (POPUP) — ВСЁ ДОЛЖНО ВЛЕЗАТЬ В ОКНО
+# =====================================================================
+
+class PopupLayoutTests(unittest.TestCase):
+    CHOICES = [
+        {"text": "Сохранить и выйти", "value": "save_quit"},
+        {"text": "Выйти без сохранения", "value": "no_save", "danger": True},
+        {"text": "Отмена", "value": "cancel", "neutral": True},
+    ]
+
+    def _build(self, w, h):
+        from data.themes import get_theme
+        from ui.popup import Popup
+        from ui.fonts import load_theme_fonts
+
+        fonts = load_theme_fonts()
+        popup = Popup(
+            title="Вернуться в главное меню?",
+            message="Есть несохранённый прогресс! Он будет потерян.",
+            popup_type="choice",
+            buttons=[dict(c) for c in self.CHOICES],
+            width=500,
+        )
+        popup._alpha = 255
+        popup._scale = 1.0
+        surface = pygame.Surface((w, h))
+        popup.draw(surface, get_theme("default"),
+                   fonts.get("button"), fonts.get("title"))
+        return popup
+
+    def test_dialog_and_buttons_fit_screen(self):
+        """Окно и все кнопки целиком помещаются в экран."""
+        for w, h in ((1280, 720), (1024, 768), (900, 600), (800, 480),
+                     (640, 480), (1024, 300)):
+            popup = self._build(w, h)
+            panel = popup._panel_rect
+            self.assertGreaterEqual(panel.left, 0, f"{w}x{h}: панель слева за экраном")
+            self.assertGreaterEqual(panel.top, 0, f"{w}x{h}: панель сверху за экраном")
+            self.assertLessEqual(panel.right, w, f"{w}x{h}: панель справа за экраном")
+            self.assertLessEqual(panel.bottom, h, f"{w}x{h}: панель снизу за экраном")
+
+            for btn in popup._buttons:
+                self.assertGreaterEqual(
+                    btn.rect.left, panel.left,
+                    f"{w}x{h}: «{btn.text}» вылезает влево")
+                self.assertLessEqual(
+                    btn.rect.right, panel.right,
+                    f"{w}x{h}: «{btn.text}» вылезает вправо")
+                self.assertGreaterEqual(
+                    btn.rect.top, panel.top,
+                    f"{w}x{h}: «{btn.text}» вылезает вверх")
+                self.assertLessEqual(
+                    btn.rect.bottom, panel.bottom,
+                    f"{w}x{h}: «{btn.text}» вылезает вниз")
+
+    def test_buttons_do_not_overlap(self):
+        popup = self._build(1280, 720)
+        rects = [b.rect for b in popup._buttons]
+        for i, rect in enumerate(rects):
+            for other in rects[i + 1:]:
+                self.assertFalse(rect.colliderect(other), "кнопки диалога накладываются")
+
+    def test_button_labels_fit_their_buttons(self):
+        """Текст кнопки не шире самой кнопки (иначе он вылезал за края)."""
+        popup = self._build(1280, 720)
+        for btn in popup._buttons:
+            text_w = btn.font.size(btn.text)[0]
+            self.assertLessEqual(
+                text_w, btn.rect.width,
+                f"подпись «{btn.text}» шире кнопки",
+            )
+
+
+# =====================================================================
+# 7. ПРОКРУТКА СПИСКОВ В ПАУЗЕ
+# =====================================================================
+
+class SubScreenScrollTests(unittest.TestCase):
+    def _menu(self, w=1024, h=600):
+        from core.save_manager import SaveManager
+        from core.sound_manager import SoundManager
+        from locales.locale_manager import locale
+        from screens.pause_menu import PauseMenuScreen
+        from ui.fonts import load_theme_fonts
+        from data.themes import get_theme
+
+        locale.load_locale("ru")
+        save = SaveManager()
+        save.new_game(1)
+        menu = PauseMenuScreen(w, h, save, SoundManager())
+        menu.init_fonts(load_theme_fonts())
+        menu._init_ui()
+        menu._panel_alpha = 255
+        menu._theme = get_theme("default")
+        menu._surface = pygame.Surface((w, h))
+        self._w, self._h = w, h
+        return menu
+
+    def _frame(self, menu):
+        menu.update(1 / 60)
+        menu._surface.fill((20, 20, 30))
+        menu.draw(menu._surface, menu._theme)
+
+    def _wheel(self, menu, y=-1):
+        event = pygame.event.Event(
+            pygame.MOUSEWHEEL, x=0, y=y, flipped=False, which=0,
+            touch=False, precise_x=0.0, precise_y=float(y),
+        )
+        menu.handle_event(event)
+
+    def test_wheel_scrolls_without_closing(self):
+        for screen in ("achievements", "statistics"):
+            menu = self._menu(1024, 400)
+            menu._handle_button(screen)
+            self._frame(menu)
+
+            self._wheel(menu)
+            self._frame(menu)
+
+            self.assertEqual(
+                menu._sub_screen, screen,
+                f"{screen}: колесо мыши закрыло список",
+            )
+            self.assertGreater(menu._sub_scroll, 0, f"{screen}: колесо не листает")
+
+    def test_legacy_wheel_buttons_do_not_close(self):
+        """Колесо под видом кнопок 4/5 не должно закрывать список."""
+        menu = self._menu(1024, 400)
+        menu._handle_button("achievements")
+        self._frame(menu)
+
+        for button in (4, 5):
+            menu.handle_event(pygame.event.Event(
+                pygame.MOUSEBUTTONDOWN, button=button, pos=(menu._sub_panel_rect.center)
+            ))
+        self.assertEqual(menu._sub_screen, "achievements")
+
+    def test_drag_scrolls_list(self):
+        menu = self._menu(1024, 400)
+        menu._handle_button("achievements")
+        self._frame(menu)
+
+        center = menu._sub_panel_rect.center
+        menu.handle_event(pygame.event.Event(
+            pygame.MOUSEBUTTONDOWN, button=1, pos=center
+        ))
+        self.assertEqual(menu._sub_screen, "achievements",
+                         "нажатие внутри списка закрыло его")
+        self.assertTrue(menu._sub_dragging)
+
+        menu.handle_event(pygame.event.Event(
+            pygame.MOUSEMOTION, pos=(center[0], center[1] - 80),
+            rel=(0, -80), buttons=(1, 0, 0),
+        ))
+        self._frame(menu)
+        self.assertGreater(menu._sub_scroll, 0, "перетаскивание не листает")
+
+        menu.handle_event(pygame.event.Event(
+            pygame.MOUSEBUTTONUP, button=1, pos=(center[0], center[1] - 80)
+        ))
+        self.assertFalse(menu._sub_dragging)
+
+    def test_click_outside_closes(self):
+        menu = self._menu(1024, 400)
+        menu._handle_button("achievements")
+        self._frame(menu)
+
+        menu.handle_event(pygame.event.Event(
+            pygame.MOUSEBUTTONDOWN, button=1, pos=(2, 2)
+        ))
+        self.assertIsNone(menu._sub_screen)
+
+    def test_scroll_is_clamped(self):
+        menu = self._menu(1024, 400)
+        menu._handle_button("achievements")
+        self._frame(menu)
+
+        for _ in range(200):
+            self._wheel(menu)
+        self._frame(menu)
+        self.assertLessEqual(menu._sub_scroll, menu._sub_max_scroll)
+        self.assertGreaterEqual(menu._sub_scroll, 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

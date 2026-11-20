@@ -129,7 +129,10 @@ class PrestigeScreen:
 
         # Попапы
         if self._popup.has_popup:
-            self._popup.handle_event(event, self._fonts.get("button"))
+            self._popup.handle_event(
+                event, self._fonts.get("button"),
+                theme=getattr(self, "_theme", None)
+            )
             return True
 
         # Назад
@@ -508,6 +511,7 @@ class PrestigeScreen:
             self._scroll.draw(surface, theme, draw_upgrades)
 
         # Попапы
+        self._theme = theme
         self._popup.draw(surface, theme, self._fonts.get("button"), self._fonts.get("title"))
 
     def reset(self):
